@@ -51,7 +51,7 @@ When you push, git asks for a username and password. **Your normal GitHub passwo
 
 1. Go to [github.com/settings/tokens](https://github.com/settings/tokens) → **Generate new token** → **Generate new token (classic)**.
 2. **Note:** `Mac terminal`
-3. **Expiration:** 90 days (or "No expiration" if you'd rather not redo this).
+3. **Expiration:** 90 days. Avoid "No expiration" — see the note below on why.
 4. **Scopes:** tick **`repo`** — that's the only one you need.
 5. Click **Generate token**.
 6. **Copy the token immediately.** GitHub shows it exactly once. Paste it somewhere safe, like a password manager.
@@ -65,6 +65,18 @@ To avoid repeating this every time, run once:
 git config --global credential.helper osxkeychain
 ```
 macOS will then remember the token in your Keychain.
+
+### Why not "No expiration"
+
+That token is a key to your account's code. With the `repo` scope, anyone holding it can read all your private repositories and push changes to them — no password needed, and it bypasses two-factor authentication. That's by design, so tools can work without a human present.
+
+Tokens leak in ordinary ways: pasted into a chat while asking for help, caught in a screenshot, committed into a repo by accident, left on a laptop that's sold or stolen.
+
+The problem is you rarely find out. There's no alert when a token leaks. A 90-day token that leaks on day 10 stops working on day 90 regardless — a token with no expiry keeps working until you personally notice and revoke it, which might be never. Expiration doesn't prevent leaks; it caps how long one can hurt you.
+
+With the keychain helper above, renewing is a few minutes about four times a year.
+
+**If you ever suspect a token is exposed**, revoke it immediately at [github.com/settings/tokens](https://github.com/settings/tokens). It's instant and free — just generate a new one afterwards.
 
 ---
 
@@ -99,6 +111,8 @@ That said:
 ---
 
 ## If something goes wrong
+
+**"not a git repository"** — you're not standing inside the project folder. Run `cd ~/Documents/akka` first. Your prompt should show `akka %` rather than `~ %`.
 
 **"remote origin already exists"** — you ran step 3 twice. Fix with:
 ```
