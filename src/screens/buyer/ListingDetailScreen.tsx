@@ -6,12 +6,15 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useApp } from '../../context/AppContext';
 import { colors, spacing, radius, typography } from '../../theme/theme';
 import { BuyerStackParamList } from '../../navigation/types';
+import { useBuyerLocation } from '../../hooks/useBuyerLocation';
+import { distanceInMeters, formatDistance } from '../../services/locationService';
 
 type Props = NativeStackScreenProps<BuyerStackParamList, 'ListingDetail'>;
 
 export default function ListingDetailScreen({ route, navigation }: Props) {
   const { listingId } = route.params;
   const { listings, restaurants, reserveListing } = useApp();
+  const { coords } = useBuyerLocation();
   const [quantity, setQuantity] = useState(1);
   const [reserving, setReserving] = useState(false);
 
@@ -68,7 +71,17 @@ export default function ListingDetailScreen({ route, navigation }: Props) {
         </View>
         <View style={styles.infoRow}>
           <Ionicons name="location-outline" size={18} color={colors.textMuted} />
-          <Text style={styles.infoText}>{restaurant.address}</Text>
+          <Text style={styles.infoText}>
+            {restaurant.address}
+            {coords
+              ? ` · ${formatDistance(
+                  distanceInMeters(coords, {
+                    latitude: restaurant.latitude,
+                    longitude: restaurant.longitude,
+                  })
+                )}`
+              : ''}
+          </Text>
         </View>
         <View style={styles.infoRow}>
           <Ionicons name="cube-outline" size={18} color={colors.textMuted} />

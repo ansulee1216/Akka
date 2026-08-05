@@ -48,7 +48,8 @@ If you skip this setup, the app will show a clear "Firebase setup needed" screen
 - Real accounts. On first launch you sign up as either a buyer or a "사장님" (restaurant owner) — that choice is now tied to your account, made once at sign-up.
 - Buyer flow: browse today's discounted listings → view details → reserve → get a pickup code.
 - Seller flow: register a restaurant → create a surplus listing → watch reservations come in live → confirm pickup by code.
-- Photos. Sellers can take or choose a photo for each listing (and their storefront); images are resized and compressed on-device before upload to keep things fast. Listings without a photo fall back to an icon.
+- Distance. Sellers pin their shop's location when registering (GPS button, or looked up from the address). Buyers who allow location see listings sorted nearest-first with distances on each card; those who decline still get the full list, just newest-first.
+- Photos. Sellers can take or choose a photo for each listing (and their storefront); images are resized and compressed on-device before upload to keep things fast. Listings without a photo fall back to an icon. Currently switched off — see `isStorageEnabled` in `src/config/firebaseConfig.ts`.
 - Data (restaurants, listings, orders) lives in Firestore and syncs in real time across every phone using the app — a listing a restaurant owner creates shows up immediately for buyers browsing on a different phone.
 - `firestore.rules` and `storage.rules` lock down who can read/write what (e.g. only a restaurant's owner can edit its listings; buyers can only see their own orders; uploads must be images under 8MB). See `PROJECT_PLAN.md` for the fuller data model and roadmap (Toss Payments, app store submission).
 

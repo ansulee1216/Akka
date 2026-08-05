@@ -23,6 +23,25 @@ function sortByNewest<T>(items: T[]): T[] {
   return [...items].sort((a: any, b: any) => toMillis(b.createdAt) - toMillis(a.createdAt));
 }
 
+/**
+ * Removes keys whose value is `undefined`.
+ *
+ * Firestore rejects `undefined` outright ("Unsupported field value"), but it's
+ * the natural result of an optional field that wasn't filled in — e.g.
+ * `photoUrl` when no photo was attached. Omitting the key entirely is what we
+ * actually mean: the field simply isn't set on the document.
+ *
+ * Note this is deliberately shallow. `null` is left alone, since that's an
+ * explicit "clear this field" and Firestore accepts it.
+ */
+function stripUndefined<T extends Record<string, any>>(data: T): Record<string, any> {
+  const cleaned: Record<string, any> = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (value !== undefined) cleaned[key] = value;
+  }
+  return cleaned;
+}
+
 // ── Restaurants ─────────────────────────────────────────────────────────────
 
 export function subscribeToRestaurants(callback: (restaurants: Restaurant[]) => void) {
@@ -41,7 +60,7 @@ export async function createRestaurant(
   ownerUid: string
 ): Promise<string> {
   const ref = await addDoc(collection(db, 'restaurants'), {
-    ...data,
+    ...stripUndefined(data),
     ownerUid,
     isVerified: false,
     createdAt: serverTimestamp(),
@@ -71,7 +90,7 @@ export async function createListing(
   data: Omit<Listing, 'listingId' | 'quantityRemaining' | 'status' | 'createdAt'>
 ): Promise<string> {
   const ref = await addDoc(collection(db, 'listings'), {
-    ...data,
+    ...stripUndefined(data),
     quantityRemaining: data.quantityTotal,
     status: 'active',
     createdAt: serverTimestamp(),
@@ -95,7 +114,7 @@ export async function updateListing(
     if (!snap.exists()) throw new Error('상품을 찾을 수 없어요.');
     const current = snap.data() as Listing;
 
-    const patch: Record<string, any> = { ...data };
+    const patch: Record<string, any> = stripUndefined(data);
 
     if (typeof data.quantityTotal === 'number' && data.quantityTotal !== current.quantityTotal) {
       const claimed = current.quantityTotal - current.quantityRemaining;
