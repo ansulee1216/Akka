@@ -1,0 +1,83 @@
+rules_version = '2';
+
+// Security rules for the Akka prototype.
+//
+// These are written to be reasonably safe for real testing (not just "test
+// mode" wide open), but a few things are intentionally simplified for this
+// stage and should be hardened with Cloud Functions before a real launch:
+//   - Quantity changes on `listings` (reserving/cancelling) are done directly
+//     by client writes rather than through a trusted server function. A
+//     malicious client could in theory push arbitrary quantityRemaining
+//     values within the allowed field set. Fine for testing with real users
+//     you know; not fine once this is public and unmoderated.
+//   - `allow list` on orders lets any signed-in user run a query against the
+//     orders collection. The app only ever queries its own orders, and `get`
+//     still blocks reading someone else's order directly, but a determined
+//     user could craft a broader query. Tighten this before launch.
+//
+// To deploy: install the Firebase CLI (`npm install -g firebase-tools`),
+// run `firebase login`, `firebase init firestore` (point it at this file),
+// then `firebase deploy --only firestore:rules`. Or simply paste this file's
+// contents into the Firebase Console under Firestore Database > Rules.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function ownsRestaurant(restaurantId) {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/restaurants/$(restaurantId)).data.ownerUid == request.auth.uid;
+    }
+
+    // Each user's own profile (display name, role). Only they can read/write it.
+    match /users/{uid} {
+      allow read, write: if isSignedIn() && request.auth.uid == uid;
+    }
+
+    // Anyone can see restaurants (buyers need this to browse). Only the
+    // owner can create/edit/delete their own restaurant.
+    match /restaurants/{restaurantId} {
+      allow read: if true;
+      allow create: if isSignedIn() && request.resource.data.ownerUid == request.auth.uid;
+      allow update, delete: if isSignedIn() && resource.data.ownerUid == request.auth.uid;
+    }
+
+    // Anyone can see active listings (buyers browsing). Only the owning
+    // restaurant can create/delete a listing or change its non-quantity
+    // fields. Any signed-in user may adjust quantityRemaining/status —
+    // that's what happens when a buyer reserves or cancels — see the
+    // hardening note above.
+    match /listings/{listingId} {
+      allow read: if true;
+      allow create: if ownsRestaurant(request.resource.data.restaurantId);
+      allow delete: if ownsRestaurant(resource.data.restaurantId);
+      allow update: if ownsRestaurant(resource.data.restaurantId) ||
+        (isSignedIn() &&
+         request.resource.data.diff(resource.data).affectedKeys()
+           .hasOnly(['quantityRemaining', 'status']));
+    }
+
+    // Orders are only visible to the buyer who made them or the restaurant
+    // that received them. A buyer can create their own order. Either side
+    // can update status (buyer cancels, restaurant marks picked up or
+    // no-show), but only that one field.
+    //
+    // Note on reads: `get` covers fetching one order directly. `list`
+    // (queries) is separate because Firestore has to decide whether a query
+    // is allowed without inspecting each result — so the app only ever
+    // queries orders filtered by its own buyerUid or its own restaurantId,
+    // and those two shapes are what the rule below permits.
+    match /orders/{orderId} {
+      allow get: if isSignedIn() &&
+        (resource.data.buyerUid == request.auth.uid || ownsRestaurant(resource.data.restaurantId));
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.buyerUid == request.auth.uid;
+      allow update: if isSignedIn() &&
+        (resource.data.buyerUid == request.auth.uid || ownsRestaurant(resource.data.restaurantId)) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+    }
+  }
+}

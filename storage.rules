@@ -1,0 +1,41 @@
+rules_version = '2';
+
+// Security rules for Firebase Storage (uploaded food and restaurant photos).
+//
+// To publish: Firebase Console > Databases & Storage > Storage > Rules tab,
+// paste this file's contents, then Publish. (Or via the Firebase CLI:
+// `firebase deploy --only storage`.)
+//
+// Photos are world-readable on purpose — buyers browsing listings need to see
+// them, including before signing in. Writes are restricted to signed-in users,
+// with a size cap and an image-only content-type check so the bucket can't be
+// used to store arbitrary files.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isReasonableImage() {
+      return request.resource.size < 8 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    match /listings/{fileName} {
+      allow read: if true;
+      allow write: if isSignedIn() && isReasonableImage();
+    }
+
+    match /restaurants/{fileName} {
+      allow read: if true;
+      allow write: if isSignedIn() && isReasonableImage();
+    }
+
+    // Nothing else in the bucket is readable or writable.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
