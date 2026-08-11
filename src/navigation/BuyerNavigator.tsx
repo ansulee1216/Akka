@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/theme';
 import HomeScreen from '../screens/buyer/HomeScreen';
 import SearchScreen from '../screens/buyer/SearchScreen';
+import FavoritesScreen from '../screens/buyer/FavoritesScreen';
 import OrdersScreen from '../screens/buyer/OrdersScreen';
 import BuyerProfileScreen from '../screens/buyer/BuyerProfileScreen';
 import ListingDetailScreen from '../screens/buyer/ListingDetailScreen';
@@ -22,20 +23,23 @@ function BuyerTabs() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textMuted,
         tabBarStyle: { backgroundColor: colors.card, borderTopColor: colors.border },
-        tabBarIcon: ({ color, size }) => {
-          const icons: Record<string, keyof typeof Ionicons.glyphMap> = {
-            Home: 'home-outline',
-            Search: 'search-outline',
-            Orders: 'receipt-outline',
-            Profile: 'person-outline',
+        tabBarIcon: ({ color, size, focused }) => {
+          const icons: Record<string, [keyof typeof Ionicons.glyphMap, keyof typeof Ionicons.glyphMap]> = {
+            Home: ['home-outline', 'home'],
+            Search: ['search-outline', 'search'],
+            // Filled heart when active — favourites is the one tab where the
+            // filled state carries meaning rather than just being decoration.
+            Favorites: ['heart-outline', 'heart'],
+            Profile: ['person-outline', 'person'],
           };
-          return <Ionicons name={icons[route.name]} size={size} color={color} />;
+          const [outline, filled] = icons[route.name];
+          return <Ionicons name={focused ? filled : outline} size={size} color={color} />;
         },
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} options={{ title: '홈' }} />
       <Tab.Screen name="Search" component={SearchScreen} options={{ title: '검색' }} />
-      <Tab.Screen name="Orders" component={OrdersScreen} options={{ title: '내 예약' }} />
+      <Tab.Screen name="Favorites" component={FavoritesScreen} options={{ title: '즐겨찾기' }} />
       <Tab.Screen name="Profile" component={BuyerProfileScreen} options={{ title: '프로필' }} />
     </Tab.Navigator>
   );
@@ -45,6 +49,11 @@ export default function BuyerNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="BuyerTabs" component={BuyerTabs} />
+      <Stack.Screen
+        name="Orders"
+        component={OrdersScreen}
+        options={{ headerShown: true, title: '내 예약', headerBackTitle: '뒤로' }}
+      />
       <Stack.Screen
         name="ListingDetail"
         component={ListingDetailScreen}

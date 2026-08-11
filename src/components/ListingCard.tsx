@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Image, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Listing, Restaurant } from '../types';
 import { colors, spacing, radius, typography, categoryStyle } from '../theme/theme';
@@ -7,7 +7,23 @@ import { minutesUntilExpiry } from '../utils/listing';
 import { primaryCategory } from '../utils/restaurant';
 import { formatDistance } from '../services/locationService';
 
-export const COMPACT_CARD_WIDTH = 172;
+/**
+ * Rail cards are sized from the screen rather than fixed, so they stay
+ * proportionate from an SE up to a Pro Max.
+ *
+ * 78% leaves a deliberate sliver of the next card visible at the right edge —
+ * that peek is what tells people the row scrolls. Go much wider and the hint
+ * disappears; much narrower and the cards stop feeling like the main event.
+ */
+const SCREEN_WIDTH = Dimensions.get('window').width;
+export const COMPACT_CARD_WIDTH = Math.round(Math.min(Math.max(SCREEN_WIDTH * 0.78, 260), 340));
+
+/**
+ * Image band height, as a fraction of card width. Slightly shallower than a
+ * true 16:9 (0.56) to keep the overall card from getting tall — the height
+ * mostly comes from here, so this is the dial to turn.
+ */
+const COMPACT_MEDIA_HEIGHT = Math.round(COMPACT_CARD_WIDTH * 0.48);
 
 interface Props {
   listing: Listing;
@@ -50,7 +66,7 @@ export default function ListingCard({
         {listing.photoUrl ? (
           <Image source={{ uri: listing.photoUrl }} style={styles.photo} resizeMode="cover" />
         ) : (
-          <Ionicons name={category.icon as any} size={compact ? 26 : 34} color={category.ink} />
+          <Ionicons name={category.icon as any} size={compact ? 32 : 34} color={category.ink} />
         )}
 
         <View style={styles.discountBadge}>
@@ -89,9 +105,8 @@ export default function ListingCard({
             </>
           ) : (
             <Text style={styles.meta} numberOfLines={1}>
-              {compact
-                ? `${listing.pickupWindowStart}까지 · ${listing.quantityRemaining}개`
-                : `픽업 ${listing.pickupWindowStart} - ${listing.pickupWindowEnd} · ${listing.quantityRemaining}개 남음`}
+              픽업 {listing.pickupWindowStart} - {listing.pickupWindowEnd} ·{' '}
+              {listing.quantityRemaining}개 남음
             </Text>
           )}
         </View>
@@ -111,7 +126,7 @@ const styles = StyleSheet.create({
   cardCompact: { width: COMPACT_CARD_WIDTH },
 
   media: { height: 130, alignItems: 'center', justifyContent: 'center' },
-  mediaCompact: { height: 96 },
+  mediaCompact: { height: COMPACT_MEDIA_HEIGHT },
   photo: { width: '100%', height: '100%' },
 
   discountBadge: {
@@ -136,10 +151,10 @@ const styles = StyleSheet.create({
   distanceText: { color: colors.card, fontSize: 11, fontWeight: '600' },
 
   body: { padding: spacing.md, paddingTop: spacing.sm + 2 },
-  bodyCompact: { padding: spacing.sm + 2 },
+  bodyCompact: { paddingHorizontal: spacing.sm + 2, paddingVertical: spacing.sm },
   restaurantName: { ...typography.caption, color: colors.textMuted, fontSize: 12 },
   title: { ...typography.bodyBold, fontSize: 16, marginTop: 2, color: colors.text },
-  titleCompact: { fontSize: 14 },
+  titleCompact: { fontSize: 15 },
   priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.xs, marginTop: spacing.xs },
   price: { ...typography.price, color: colors.text },
   originalPrice: {
@@ -159,7 +174,7 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.borderSoft,
   },
-  metaRowCompact: { marginTop: spacing.xs + 2, paddingTop: spacing.xs + 2 },
+  metaRowCompact: { marginTop: spacing.xs, paddingTop: spacing.xs },
   meta: { ...typography.caption, fontSize: 12, color: colors.textMuted, flexShrink: 1 },
   urgency: { ...typography.caption, fontSize: 12, color: colors.accent, fontWeight: '700' },
 });

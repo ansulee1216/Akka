@@ -7,8 +7,8 @@ import CategoryChips from '../../components/CategoryChips';
 import { colors, spacing, radius, typography } from '../../theme/theme';
 import { MAX_PREFERRED_CATEGORIES } from '../../types';
 
-export default function BuyerProfileScreen() {
-  const { currentUser, signOut, savePreferredCategories } = useApp();
+export default function BuyerProfileScreen({ navigation }: any) {
+  const { currentUser, signOut, savePreferredCategories, buyerOrders } = useApp();
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<string[]>(currentUser?.preferredCategories ?? []);
@@ -43,6 +43,8 @@ export default function BuyerProfileScreen() {
   };
 
   const preferred = currentUser?.preferredCategories ?? [];
+  // Surfaced on the row so a waiting pickup isn't buried a screen deep.
+  const pendingCount = buyerOrders.filter((o) => o.status === 'reserved').length;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -57,9 +59,20 @@ export default function BuyerProfileScreen() {
           <Text style={styles.role}>고객 계정</Text>
         </View>
 
+        <Pressable style={styles.navRow} onPress={() => navigation.navigate('Orders')}>
+          <Ionicons name="receipt-outline" size={20} color={colors.text} />
+          <Text style={styles.navRowText}>내 예약</Text>
+          {pendingCount > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{pendingCount}</Text>
+            </View>
+          )}
+          <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+        </Pressable>
+
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>좋아하는 음식</Text>
+            <Text style={styles.sectionTitle}>추천 메뉴 고르기!</Text>
             {!editing && (
               <Pressable onPress={() => setEditing(true)} hitSlop={8}>
                 <Text style={styles.action}>수정</Text>
@@ -70,8 +83,8 @@ export default function BuyerProfileScreen() {
           {editing ? (
             <>
               <Text style={styles.hint}>
-                최대 {MAX_PREFERRED_CATEGORIES}개까지 고를 수 있어요 ({draft.length}/
-                {MAX_PREFERRED_CATEGORIES}).
+                더 정확한 추천을 받기 위해 좋아하는 음식 3가지를 골라주세요. ({draft.length}/
+                {MAX_PREFERRED_CATEGORIES})
               </Text>
               <CategoryChips
                 selected={draft}
@@ -103,7 +116,7 @@ export default function BuyerProfileScreen() {
             </View>
           ) : (
             <Text style={styles.hint}>
-              아직 고른 음식이 없어요. 고르면 홈 화면 추천이 더 정확해져요.
+              더 정확한 추천을 받기 위해 좋아하는 음식 3가지를 골라주세요.
             </Text>
           )}
         </View>
@@ -139,6 +152,27 @@ const styles = StyleSheet.create({
   },
   role: { ...typography.caption, color: colors.textMuted },
 
+  navRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.lg,
+    padding: spacing.md,
+    backgroundColor: colors.card,
+    borderRadius: radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  navRowText: { ...typography.body, color: colors.text, flex: 1 },
+  badge: {
+    backgroundColor: colors.accent,
+    borderRadius: radius.pill,
+    minWidth: 20,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    alignItems: 'center',
+  },
+  badgeText: { color: colors.card, fontSize: 12, fontWeight: '700' },
   section: {
     marginTop: spacing.lg,
     backgroundColor: colors.card,

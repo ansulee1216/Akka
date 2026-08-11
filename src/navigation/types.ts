@@ -5,6 +5,8 @@ export type AuthStackParamList = {
 
 export type BuyerStackParamList = {
   BuyerTabs: undefined;
+  /** Pushed from the profile screen rather than living in the tab bar. */
+  Orders: undefined;
   ListingDetail: { listingId: string };
   ReservationConfirm: {
     orderId: string;

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, FlatList, Pressable, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../../context/AppContext';
 import { colors, spacing, radius, typography } from '../../theme/theme';
 import { Order } from '../../types';
@@ -73,16 +74,22 @@ export default function OrdersScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <Text style={typography.h1}>내 예약</Text>
-      </View>
+    // No top edge or inline title — this screen is pushed with a navigation
+    // header now, so both would duplicate it.
+    <SafeAreaView style={styles.container} edges={['bottom']}>
       <FlatList
         data={buyerOrders}
         keyExtractor={(item) => item.orderId}
         renderItem={renderItem}
         contentContainerStyle={{ padding: spacing.md, gap: spacing.md }}
-        ListEmptyComponent={<Text style={styles.empty}>아직 예약한 상품이 없어요.</Text>}
+        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          <View style={styles.emptyBlock}>
+            <Ionicons name="receipt-outline" size={30} color={colors.textMuted} />
+            <Text style={styles.emptyTitle}>아직 예약한 상품이 없어요</Text>
+            <Text style={styles.empty}>홈에서 마음에 드는 상품을 예약해보세요.</Text>
+          </View>
+        }
       />
     </SafeAreaView>
   );
@@ -121,5 +128,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelText: { ...typography.caption, color: colors.danger, fontWeight: '600' },
-  empty: { textAlign: 'center', color: colors.textMuted, marginTop: spacing.xl, ...typography.body },
+  emptyBlock: { alignItems: 'center', paddingTop: spacing.xl, gap: spacing.sm },
+  emptyTitle: { ...typography.bodyBold, color: colors.text },
+  empty: { textAlign: 'center', color: colors.textMuted, ...typography.caption },
 });

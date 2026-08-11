@@ -100,11 +100,23 @@ export function rankNearby(items: FeedItem[]): FeedItem[] {
   return [...items].sort(byDistance);
 }
 
-/** 특별 할인 — 60%+ off, biggest saving first. */
+/**
+ * 특별 할인 — only the deepest discounts, steepest first.
+ *
+ * Ties break on the larger cash saving, so between two 75%-off listings the
+ * ₩20,000 bag outranks the ₩4,000 one. Same headline percentage, more actually
+ * saved.
+ */
 export function rankSpecialDeals(items: FeedItem[]): FeedItem[] {
   return items
     .filter((item) => discountPercent(item.listing) >= SPECIAL_DISCOUNT_THRESHOLD)
-    .sort((a, b) => discountPercent(b.listing) - discountPercent(a.listing));
+    .sort((a, b) => {
+      const byPercent = discountPercent(b.listing) - discountPercent(a.listing);
+      if (byPercent !== 0) return byPercent;
+      const savingA = a.listing.originalPrice - a.listing.discountedPrice;
+      const savingB = b.listing.originalPrice - b.listing.discountedPrice;
+      return savingB - savingA;
+    });
 }
 
 /** Case-insensitive match across listing title, description and shop name. */
