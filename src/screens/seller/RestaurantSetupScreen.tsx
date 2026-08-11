@@ -23,17 +23,18 @@ import {
 } from '../../services/locationService';
 import AddressSearchModal from '../../components/AddressSearchModal';
 import type { PlaceResult } from '../../services/kakaoService';
-import { colors, spacing, radius, typography } from '../../theme/theme';
+import { colors, spacing, radius, typography, CATEGORIES } from '../../theme/theme';
 
-const CATEGORIES = ['Korean', 'Bakery', 'Cafe', 'Italian', 'Japanese', 'Fast Food', 'Other'];
+const MAX_CATEGORIES = 2;
 
 export default function RestaurantSetupScreen() {
   const { registerRestaurant } = useApp();
   const [submitting, setSubmitting] = useState(false);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [name, setName] = useState('');
-  const [category, setCategory] = useState(CATEGORIES[0]);
+  const [categories, setCategories] = useState<string[]>([]);
   const [address, setAddress] = useState('');
+  const [addressDetail, setAddressDetail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
 
   // The shop's position on the map. Buyers can only be shown accurate
@@ -43,6 +44,16 @@ export default function RestaurantSetupScreen() {
   const [coordsLabel, setCoordsLabel] = useState<string | null>(null);
   const [locating, setLocating] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+
+  const atCategoryLimit = categories.length >= MAX_CATEGORIES;
+
+  const toggleCategory = (value: string) => {
+    setCategories((current) => {
+      if (current.includes(value)) return current.filter((c) => c !== value);
+      if (current.length >= MAX_CATEGORIES) return current; // chips are dimmed at the cap
+      return [...current, value];
+    });
+  };
 
   const useCurrentLocation = async () => {
     setLocating(true);
@@ -86,10 +97,14 @@ export default function RestaurantSetupScreen() {
       Alert.alert('입력 필요', '가게 이름, 주소, 연락처를 모두 입력해주세요.');
       return;
     }
+    if (categories.length === 0) {
+      Alert.alert('카테고리를 선택해주세요', '가게에 맞는 카테고리를 1개 이상 골라주세요.');
+      return;
+    }
     if (!coords) {
       Alert.alert(
         '위치 설정이 필요해요',
-        '구매자에게 거리를 보여주려면 가게 위치가 필요해요. "현재 위치 사용" 또는 "주소로 찾기"를 눌러주세요.'
+        '고객에게 거리를 보여주려면 가게 위치가 필요해요. "현재 위치 사용" 또는 "주소로 찾기"를 눌러주세요.'
       );
       return;
     }
@@ -100,8 +115,10 @@ export default function RestaurantSetupScreen() {
 
       await registerRestaurant({
         name: name.trim(),
-        category,
+        categories,
         address: address.trim(),
+        // Optional — omitted entirely when blank rather than saved as "".
+        addressDetail: addressDetail.trim() || undefined,
         phoneNumber: phoneNumber.trim(),
         photoUrl,
         latitude: coords.latitude,
@@ -138,17 +155,35 @@ export default function RestaurantSetupScreen() {
           placeholder="예: 연남동 베이커리"
         />
 
-        <Text style={styles.label}>카테고리</Text>
+        <Text style={styles.label}>
+          카테고리 <Text style={styles.optional}>({categories.length}/{MAX_CATEGORIES})</Text>
+        </Text>
+        <Text style={styles.hint}>가게에 맞는 카테고리를 최대 2개까지 고를 수 있어요.</Text>
         <View style={styles.chipRow}>
-          {CATEGORIES.map((c) => (
-            <Pressable
-              key={c}
-              style={[styles.chip, category === c && styles.chipActive]}
-              onPress={() => setCategory(c)}
-            >
-              <Text style={[styles.chipText, category === c && styles.chipTextActive]}>{c}</Text>
-            </Pressable>
-          ))}
+          {CATEGORIES.map((c) => {
+            const selected = categories.includes(c);
+            // Once two are picked the rest are dimmed, so it's visible why
+            // they stop responding rather than tapping doing nothing.
+            const dimmed = !selected && atCategoryLimit;
+            return (
+              <Pressable
+                key={c}
+                style={[styles.chip, selected && styles.chipActive, dimmed && styles.chipDimmed]}
+                onPress={() => toggleCategory(c)}
+                disabled={dimmed}
+              >
+                <Text
+                  style={[
+                    styles.chipText,
+                    selected && styles.chipTextActive,
+                    dimmed && styles.chipTextDimmed,
+                  ]}
+                >
+                  {c}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
 
         <Text style={styles.label}>주소</Text>
@@ -161,7 +196,7 @@ export default function RestaurantSetupScreen() {
 
         <Text style={styles.label}>가게 위치</Text>
         <Text style={styles.hint}>
-          구매자에게 "내 위치에서 몇 m" 를 보여주기 위해 필요해요. 가게에 계신다면 현재 위치를 쓰는 게
+          고객에게 "내 위치에서 몇 m" 를 보여주기 위해 필요해요. 가게에 계신다면 현재 위치를 쓰는 게
           가장 정확해요.
         </Text>
 
@@ -195,6 +230,19 @@ export default function RestaurantSetupScreen() {
           </View>
         )}
 
+        <Text style={styles.label}>
+          상세 주소 <Text style={styles.optional}>(선택)</Text>
+        </Text>
+        <Text style={styles.hint}>
+          건물명, 층, 호수처럼 지도에 나오지 않는 정보를 적어주세요. 고객이 가게를 찾는 데 도움이 돼요.
+        </Text>
+        <TextInput
+          style={styles.input}
+          value={addressDetail}
+          onChangeText={setAddressDetail}
+          placeholder="예: 2층 201호, 편의점 옆 골목"
+        />
+
         <Text style={styles.label}>연락처</Text>
         <TextInput
           style={styles.input}
@@ -225,6 +273,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   subtitle: { ...typography.body, color: colors.textMuted, marginTop: spacing.xs, marginBottom: spacing.lg },
   label: { ...typography.bodyBold, marginBottom: spacing.xs, marginTop: spacing.md },
+  optional: { ...typography.caption, color: colors.textMuted, fontWeight: '400' },
   hint: { ...typography.caption, color: colors.textMuted, marginBottom: spacing.sm, lineHeight: 18 },
   input: {
     backgroundColor: colors.card,
@@ -244,8 +293,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
   },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  chipDimmed: { opacity: 0.4 },
   chipText: { ...typography.caption, color: colors.text },
   chipTextActive: { color: colors.card, fontWeight: '700' },
+  chipTextDimmed: { color: colors.textMuted },
   locationRow: { flexDirection: 'row', gap: spacing.sm },
   locationBtn: {
     flex: 1,

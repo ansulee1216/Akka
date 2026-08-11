@@ -58,13 +58,13 @@ export default function SignUpScreen({ navigation }: Props) {
               style={[styles.roleBtn, role === 'buyer' && styles.roleBtnActive]}
               onPress={() => setRole('buyer')}
             >
-              <Text style={[styles.roleBtnText, role === 'buyer' && styles.roleBtnTextActive]}>구매자</Text>
+              <Text style={[styles.roleBtnText, role === 'buyer' && styles.roleBtnTextActive]}>고객</Text>
             </Pressable>
             <Pressable
               style={[styles.roleBtn, role === 'seller' && styles.roleBtnActive]}
               onPress={() => setRole('seller')}
             >
-              <Text style={[styles.roleBtnText, role === 'seller' && styles.roleBtnTextActive]}>사장님</Text>
+              <Text style={[styles.roleBtnText, role === 'seller' && styles.roleBtnTextActive]}>가게</Text>
             </Pressable>
           </View>
 

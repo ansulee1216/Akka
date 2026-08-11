@@ -3,13 +3,17 @@ import { View, Text, StyleSheet, FlatList, Pressable, Image } from 'react-native
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../../context/AppContext';
-import { colors, spacing, radius, typography } from '../../theme/theme';
-import { Listing } from '../../types';
+import { colors, spacing, radius, typography, categoryStyle } from '../../theme/theme';
 import { isListingAvailable, minutesUntilExpiry, toMillis } from '../../utils/listing';
 import { useNow } from '../../hooks/useNow';
 import { useBuyerLocation } from '../../hooks/useBuyerLocation';
 import { distanceInMeters, formatDistance } from '../../services/locationService';
+import { primaryCategory } from '../../utils/restaurant';
 
+/**
+ * Only surfaced in the final hour. Shown constantly it becomes wallpaper and
+ * stops meaning anything, so the quiet state is deliberate.
+ */
 function urgencyLabel(minutes: number): string | null {
   if (!isFinite(minutes) || minutes <= 0) return null;
   if (minutes <= 60) return `${minutes}분 후 마감`;
@@ -21,8 +25,6 @@ export default function BrowseScreen({ navigation }: any) {
   const now = useNow();
   const { coords, status, enableLocation } = useBuyerLocation();
 
-  // Each listing paired with the distance to its restaurant, sorted nearest
-  // first when we know where the buyer is, newest first otherwise.
   const rows = useMemo(() => {
     const available = listings.filter((l) => isListingAvailable(l, now));
 
@@ -39,8 +41,6 @@ export default function BrowseScreen({ navigation }: any) {
     });
 
     if (coords) {
-      // Listings whose restaurant we can't place go last rather than first,
-      // which is what sorting nulls naively would do.
       return withDistance.sort((a, b) => {
         if (a.distance === null && b.distance === null) return 0;
         if (a.distance === null) return 1;
@@ -58,55 +58,63 @@ export default function BrowseScreen({ navigation }: any) {
     const { listing, restaurant, distance } = item;
     const discountPct = Math.round((1 - listing.discountedPrice / listing.originalPrice) * 100);
     const urgency = urgencyLabel(minutesUntilExpiry(listing, now));
+    const category = categoryStyle(primaryCategory(restaurant));
 
     return (
       <Pressable
         style={styles.card}
         onPress={() => navigation.navigate('ListingDetail', { listingId: listing.listingId })}
       >
-        {listing.photoUrl ? (
-          <Image source={{ uri: listing.photoUrl }} style={styles.thumb} resizeMode="cover" />
-        ) : (
-          <View style={styles.thumb}>
-            <Ionicons name="fast-food-outline" size={28} color={colors.primary} />
+        <View style={[styles.media, { backgroundColor: category.tint }]}>
+          {listing.photoUrl ? (
+            <Image source={{ uri: listing.photoUrl }} style={styles.photo} resizeMode="cover" />
+          ) : (
+            <Ionicons name={category.icon as any} size={34} color={category.ink} />
+          )}
+
+          <View style={styles.discountBadge}>
+            <Text style={styles.discountText}>{discountPct}% 할인</Text>
           </View>
-        )}
-        <View style={{ flex: 1 }}>
-          <View style={styles.nameRow}>
-            <Text style={styles.restaurantName} numberOfLines={1}>
-              {restaurant?.name}
-            </Text>
-            {distance !== null && (
-              <View style={styles.distanceChip}>
-                <Ionicons name="location-outline" size={11} color={colors.primary} />
-                <Text style={styles.distanceText}>{formatDistance(distance)}</Text>
-              </View>
-            )}
-          </View>
+
+          {distance !== null && (
+            <View style={styles.distanceChip}>
+              <Text style={styles.distanceText}>{formatDistance(distance)}</Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.body}>
+          <Text style={styles.restaurantName} numberOfLines={1}>
+            {restaurant?.name}
+          </Text>
           <Text style={styles.title} numberOfLines={1}>
             {listing.title}
           </Text>
+
           <View style={styles.priceRow}>
+            <Text style={styles.price}>₩{listing.discountedPrice.toLocaleString()}</Text>
             <Text style={styles.originalPrice}>₩{listing.originalPrice.toLocaleString()}</Text>
-            <Text style={styles.discountedPrice}>₩{listing.discountedPrice.toLocaleString()}</Text>
-            <View style={styles.discountBadge}>
-              <Text style={styles.discountText}>{discountPct}% ↓</Text>
-            </View>
           </View>
+
           <View style={styles.metaRow}>
-            <Text style={styles.pickupWindow}>
-              픽업 {listing.pickupWindowStart} - {listing.pickupWindowEnd} · 남은 수량{' '}
-              {listing.quantityRemaining}개
-            </Text>
-            {urgency ? <Text style={styles.urgency}>{urgency}</Text> : null}
+            {urgency ? (
+              <>
+                <Ionicons name="time-outline" size={13} color={colors.accent} />
+                <Text style={styles.urgency}>{urgency}</Text>
+                <Text style={styles.meta}>· {listing.quantityRemaining}개 남음</Text>
+              </>
+            ) : (
+              <Text style={styles.meta}>
+                픽업 {listing.pickupWindowStart} - {listing.pickupWindowEnd} ·{' '}
+                {listing.quantityRemaining}개 남음
+              </Text>
+            )}
           </View>
         </View>
       </Pressable>
     );
   };
 
-  // Only offered when location hasn't been granted yet. If it was actively
-  // denied, iOS won't show the dialog again anyway, so we point at Settings.
   const showLocationPrompt = !coords;
 
   return (
@@ -123,7 +131,8 @@ export default function BrowseScreen({ navigation }: any) {
         data={rows}
         keyExtractor={(item) => item.listing.listingId}
         renderItem={renderItem}
-        contentContainerStyle={{ padding: spacing.md, gap: spacing.md }}
+        contentContainerStyle={{ padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl }}
+        showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           showLocationPrompt ? (
             <Pressable
@@ -144,9 +153,13 @@ export default function BrowseScreen({ navigation }: any) {
           ) : null
         }
         ListEmptyComponent={
-          <Text style={styles.empty}>
-            지금은 판매 중인 마감 상품이 없어요. 나중에 다시 확인해주세요!
-          </Text>
+          <View style={styles.empty}>
+            <Ionicons name="moon-outline" size={32} color={colors.textMuted} />
+            <Text style={styles.emptyTitle}>지금은 판매 중인 상품이 없어요</Text>
+            <Text style={styles.emptyBody}>
+              마감 할인은 보통 저녁 시간에 올라와요. 조금 뒤에 다시 확인해보세요.
+            </Text>
+          </View>
         }
       />
     </SafeAreaView>
@@ -157,60 +170,77 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   header: { paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.xs },
   headerSubtitle: { ...typography.caption, color: colors.textMuted, marginTop: 2 },
+
   locationPrompt: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
     padding: spacing.md,
     borderRadius: radius.md,
-    backgroundColor: '#EAF7EF',
-    borderWidth: 1,
-    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
     marginBottom: spacing.md,
   },
   locationPromptText: { ...typography.caption, color: colors.text, flex: 1, lineHeight: 18 },
+
   card: {
-    flexDirection: 'row',
     backgroundColor: colors.card,
     borderRadius: radius.md,
-    padding: spacing.md,
-    gap: spacing.md,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
+    overflow: 'hidden',
   },
-  thumb: {
-    width: 56,
-    height: 56,
-    borderRadius: radius.sm,
-    backgroundColor: '#EAF7EF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  nameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  restaurantName: { ...typography.caption, color: colors.textMuted, flexShrink: 1 },
-  distanceChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    backgroundColor: '#EAF7EF',
-    borderRadius: radius.pill,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-  },
-  distanceText: { fontSize: 11, fontWeight: '700', color: colors.primary },
-  title: { ...typography.bodyBold, marginTop: 2 },
-  priceRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.xs },
-  originalPrice: { ...typography.caption, color: colors.textMuted, textDecorationLine: 'line-through' },
-  discountedPrice: { ...typography.bodyBold, color: colors.primary },
+  media: { height: 130, alignItems: 'center', justifyContent: 'center' },
+  photo: { width: '100%', height: '100%' },
   discountBadge: {
+    position: 'absolute',
+    top: spacing.sm,
+    left: spacing.sm,
     backgroundColor: colors.accent,
     borderRadius: radius.pill,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
-  discountText: { color: colors.card, fontSize: 11, fontWeight: '700' },
-  metaRow: { marginTop: spacing.xs, gap: 2 },
-  pickupWindow: { ...typography.caption, color: colors.textMuted },
+  discountText: { color: colors.card, fontSize: 12, fontWeight: '700' },
+  distanceChip: {
+    position: 'absolute',
+    bottom: spacing.sm,
+    right: spacing.sm,
+    backgroundColor: colors.overlay,
+    borderRadius: radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  distanceText: { color: colors.card, fontSize: 12, fontWeight: '600' },
+
+  body: { padding: spacing.md, paddingTop: spacing.sm + 2 },
+  restaurantName: { ...typography.caption, color: colors.textMuted },
+  title: { ...typography.bodyBold, fontSize: 16, marginTop: 2, color: colors.text },
+  priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.xs, marginTop: spacing.xs },
+  price: { ...typography.price, color: colors.text },
+  originalPrice: {
+    ...typography.caption,
+    color: colors.textMuted,
+    textDecorationLine: 'line-through',
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.borderSoft,
+  },
+  meta: { ...typography.caption, color: colors.textMuted },
   urgency: { ...typography.caption, color: colors.accent, fontWeight: '700' },
-  empty: { textAlign: 'center', color: colors.textMuted, marginTop: spacing.xl, ...typography.body },
+
+  empty: { alignItems: 'center', paddingTop: spacing.xl, gap: spacing.sm },
+  emptyTitle: { ...typography.bodyBold, color: colors.text },
+  emptyBody: {
+    ...typography.caption,
+    color: colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 20,
+    paddingHorizontal: spacing.lg,
+  },
 });

@@ -188,7 +188,7 @@ export async function reserveListing(
     const listing = listingSnap.data() as Listing;
 
     if (listing.quantityRemaining < quantity) {
-      throw new Error('수량이 부족해요. 다른 구매자가 먼저 예약했을 수 있어요.');
+      throw new Error('수량이 부족해요. 다른 고객이 먼저 예약했을 수 있어요.');
     }
 
     const remaining = listing.quantityRemaining - quantity;

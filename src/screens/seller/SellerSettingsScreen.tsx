@@ -25,7 +25,7 @@ export default function SellerSettingsScreen() {
           <Ionicons name="storefront" size={28} color={colors.primary} />
         </View>
         <Text style={typography.bodyBold}>{currentUser?.displayName}</Text>
-        <Text style={styles.role}>{myRestaurant?.name} · 사장님 계정</Text>
+        <Text style={styles.role}>{myRestaurant?.name} · 가게 계정</Text>
       </View>
 
       <Pressable style={styles.logoutBtn} onPress={handleSignOut}>

@@ -16,6 +16,9 @@
 // geocoder, which mostly works for simple 동-level addresses. The GPS button
 // is unaffected and always works.
 
-export const KAKAO_REST_API_KEY = 'REPLACE_ME';
+// Typed as `string` rather than letting TypeScript infer the literal — with a
+// literal type, comparing it to 'REPLACE_ME' below is a compile error, since
+// TS can see the two can never be equal.
+export const KAKAO_REST_API_KEY: string = 'ed6f9b3790f4bc3adda5f4c62af2c495';
 
 export const isKakaoConfigured = KAKAO_REST_API_KEY !== 'REPLACE_ME' && !!KAKAO_REST_API_KEY;

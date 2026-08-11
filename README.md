@@ -15,16 +15,54 @@ As of this version, the app needs a real (free) Firebase project to run — see 
    - **Windows:** press the Windows key, type `PowerShell` (or `cmd`), hit Enter.
 4. Navigate into this project folder using the `cd` ("change directory") command, then start the app. **Type or paste one line at a time and press Enter after each — don't paste all three at once:**
    ```
-   cd "PASTE_THE_FOLDER_PATH_HERE"
+   cd ~/Documents/akka
    npm install
-   npx expo start --tunnel
+   npx expo start
    ```
-   - This folder isn't in your normal Documents/Downloads — Claude saved it in an app-managed location. If you're not sure where it is, ask Claude "where is the akka folder on my computer" and it'll give you the exact path to paste in for `PASTE_THE_FOLDER_PATH_HERE` (keep the quotes, since the path has spaces in it).
-   - Alternatively, in Finder press `Cmd + Shift + G` (Mac) to open "Go to Folder," paste that same path, hit Enter — the folder opens, and you can then drag it into the terminal after typing `cd ` instead of typing the path by hand.
-   - `npm install` downloads everything the app needs. It only needs to be run once (it can take a minute or two) — but if you already ran it before a Claude update changed dependencies, run it again so the correct versions get installed. Wait for it to finish before the next line.
-   - We use `--tunnel` instead of plain `npx expo start` because it routes the connection through the internet rather than your local Wi-Fi network. Without it, scanning the QR code often does nothing if your phone and computer aren't on the exact same network (or one is on cellular data) — `--tunnel` avoids that problem, at the cost of being a little slower to connect. `npx expo start --tunnel` needs to run every time you want to open the app.
+   - `npm install` downloads everything the app needs. Run it once, and again whenever dependencies change (it takes a minute or two). Wait for it to finish before the next line.
+   - `npx expo start` needs to run every time you want to open the app. See the section below if the QR code won't connect.
 5. A QR code will appear in the terminal. Scan it with your phone's camera (iOS) or the Expo Go app (Android). The app opens live on your phone.
-6. Any code changes you (or I) make will show up instantly — no rebuild needed. Just re-run `npx expo start --tunnel` if it's not already running.
+6. Any code changes you (or I) make will show up instantly — no rebuild needed. Just re-run `npx expo start` if it's not already running.
+
+## When the QR code won't connect
+
+The phone loads the app from your computer over the network, so the two have to be able to reach each other. Most connection problems come down to that.
+
+**First, check what address Metro printed.** It says `Metro waiting on exp://SOMETHING:8081`. That address is the whole story:
+
+| What you see | What it means |
+|---|---|
+| `192.168.x.x` or `10.x.x.x` | Normal home Wi-Fi. Should work — if it doesn't, see the checklist below. |
+| `172.20.10.x` | iPhone hotspot. Should work. |
+| `192.0.0.x` | The iPhone-USB housekeeping link, **not** a real network. Won't work. |
+| `169.254.x.x` | Self-assigned — your computer joined a network but never got an address. Won't work. |
+| something `.exp.direct` | Tunnel mode. |
+
+**Checklist for normal Wi-Fi:**
+
+- Phone and computer on the **same** network — not one on Wi-Fi and the other on cellular, and not a "guest" network, which usually blocks devices from seeing each other.
+- Force-quit Expo Go and scan the **fresh** QR code. Tapping an entry under "Recently opened" reuses an old address that's no longer live — that's what produces `ERR_NGROK_3200` / "endpoint is offline".
+- If changes aren't appearing, add `-c` to clear the bundler cache: `npx expo start -c`.
+
+**If the address looks wrong**, Metro may have picked the wrong network interface (common with VPNs, USB-connected phones, or Ethernet adapters). List what's actually available:
+
+```
+ifconfig | grep "inet " | grep -v 127.0.0.1
+```
+
+Pick the sensible-looking one and force it:
+
+```
+REACT_NATIVE_PACKAGER_HOSTNAME=192.168.1.42 npx expo start
+```
+
+**Last resort — tunnel mode:**
+
+```
+npx expo start --tunnel
+```
+
+This routes through the internet instead of your local network, so it works even when the two devices can't see each other. It's slower to start and occasionally flaky (it relies on a third-party service called ngrok), so prefer plain `npx expo start` when your network allows it.
 
 ## Connecting Firebase (required to run the app now)
 

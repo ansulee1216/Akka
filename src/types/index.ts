@@ -11,8 +11,20 @@ export interface Restaurant {
   restaurantId: string;
   ownerUid: string;
   name: string;
-  category: string;
+  /** Up to two, chosen at registration. Use `restaurantCategories()` to read. */
+  categories?: string[];
+  /**
+   * @deprecated Single category from before shops could pick two. Still
+   * present on older documents, so reads must fall back to it.
+   */
+  category?: string;
   address: string;
+  /**
+   * Optional extra detail the map can't provide — floor, unit, building name,
+   * "back entrance", and so on. Kept separate from `address` so the searched
+   * address stays exactly as Kakao returned it.
+   */
+  addressDetail?: string;
   latitude: number;
   longitude: number;
   phoneNumber: string;

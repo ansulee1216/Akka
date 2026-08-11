@@ -25,7 +25,7 @@ export default function BuyerProfileScreen() {
           <Ionicons name="person" size={28} color={colors.primary} />
         </View>
         <Text style={typography.bodyBold}>{currentUser?.displayName}</Text>
-        <Text style={styles.role}>구매자 계정</Text>
+        <Text style={styles.role}>고객 계정</Text>
       </View>
 
       <Pressable style={styles.logoutBtn} onPress={handleSignOut}>
