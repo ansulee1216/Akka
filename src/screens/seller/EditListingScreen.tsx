@@ -1,8 +1,20 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  Pressable,
+  ScrollView,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useApp } from '../../context/AppContext';
+import TimePickerField from '../../components/TimePickerField';
+import { describeWindow, windowLengthMinutes } from '../../utils/time';
 import { colors, spacing, radius, typography } from '../../theme/theme';
 import { SellerStackParamList } from '../../navigation/types';
 
@@ -45,6 +57,11 @@ export default function EditListingScreen({ route, navigation }: Props) {
       Alert.alert('가격 확인', '할인가는 정가보다 낮아야 해요.');
       return;
     }
+    const windowLength = windowLengthMinutes(pickupStart, pickupEnd);
+    if (!windowLength || windowLength < 5) {
+      Alert.alert('픽업 시간 확인', '픽업 종료 시간은 시작 시간보다 뒤여야 해요.');
+      return;
+    }
 
     setSaving(true);
     try {
@@ -67,7 +84,17 @@ export default function EditListingScreen({ route, navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      <ScrollView contentContainerStyle={{ padding: spacing.md }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? undefined : 'height'}
+      >
+      <ScrollView
+        contentContainerStyle={{ padding: spacing.md }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
+        automaticallyAdjustKeyboardInsets
+        showsVerticalScrollIndicator={false}
+      >
         {claimed > 0 && (
           <View style={styles.notice}>
             <Text style={styles.noticeText}>
@@ -118,19 +145,19 @@ export default function EditListingScreen({ route, navigation }: Props) {
 
         <View style={styles.row}>
           <View style={styles.flex1}>
-            <Text style={styles.label}>픽업 시작</Text>
-            <TextInput style={styles.input} value={pickupStart} onChangeText={setPickupStart} />
+            <TimePickerField label="픽업 시작" value={pickupStart} onChange={setPickupStart} />
           </View>
           <View style={styles.flex1}>
-            <Text style={styles.label}>픽업 종료</Text>
-            <TextInput style={styles.input} value={pickupEnd} onChangeText={setPickupEnd} />
+            <TimePickerField label="픽업 종료" value={pickupEnd} onChange={setPickupEnd} />
           </View>
         </View>
+        <Text style={styles.windowHint}>픽업 가능 시간 {describeWindow(pickupStart, pickupEnd)}</Text>
 
         <Pressable style={styles.saveBtn} onPress={handleSave} disabled={saving}>
           <Text style={styles.saveBtnText}>{saving ? '저장 중...' : '저장하기'}</Text>
         </Pressable>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -157,6 +184,7 @@ const styles = StyleSheet.create({
   },
   multiline: { minHeight: 70, textAlignVertical: 'top' },
   row: { flexDirection: 'row', gap: spacing.md },
+  windowHint: { ...typography.caption, color: colors.textMuted, marginTop: spacing.sm },
   flex1: { flex: 1 },
   saveBtn: {
     marginTop: spacing.xl,

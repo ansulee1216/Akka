@@ -3,9 +3,10 @@ import { View, Text, StyleSheet, TextInput, Pressable, KeyboardAvoidingView, Pla
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { signUp } from '../../services/authService';
+import CategoryChips from '../../components/CategoryChips';
 import { colors, spacing, radius, typography } from '../../theme/theme';
 import { AuthStackParamList } from '../../navigation/types';
-import { UserRole } from '../../types';
+import { UserRole, MAX_PREFERRED_CATEGORIES } from '../../types';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'SignUp'>;
 
@@ -22,6 +23,7 @@ export default function SignUpScreen({ navigation }: Props) {
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [preferredCategories, setPreferredCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,10 +36,14 @@ export default function SignUpScreen({ navigation }: Props) {
       setError('비밀번호는 6자 이상이어야 해요.');
       return;
     }
+    if (role === 'buyer' && preferredCategories.length === 0) {
+      setError('좋아하는 음식 종류를 1개 이상 골라주세요.');
+      return;
+    }
     setError(null);
     setLoading(true);
     try {
-      await signUp(email.trim(), password, displayName.trim(), role);
+      await signUp(email.trim(), password, displayName.trim(), role, preferredCategories);
       // Auth state listener in AppContext takes it from here.
     } catch (e: any) {
       setError(friendlyAuthError(e?.code ?? ''));
@@ -85,6 +91,25 @@ export default function SignUpScreen({ navigation }: Props) {
             secureTextEntry
           />
 
+          {role === 'buyer' && (
+            <View style={styles.prefBlock}>
+              <Text style={styles.prefTitle}>
+                좋아하는 음식{' '}
+                <Text style={styles.prefCount}>
+                  ({preferredCategories.length}/{MAX_PREFERRED_CATEGORIES})
+                </Text>
+              </Text>
+              <Text style={styles.prefHint}>
+                최대 3개까지 고를 수 있어요. 홈에서 취향에 맞는 가게를 먼저 보여드릴게요.
+              </Text>
+              <CategoryChips
+                selected={preferredCategories}
+                onChange={setPreferredCategories}
+                max={MAX_PREFERRED_CATEGORIES}
+              />
+            </View>
+          )}
+
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
           <Pressable style={styles.primaryBtn} onPress={handleSignUp} disabled={loading}>
@@ -117,6 +142,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.border,
     padding: spacing.md, ...typography.body, marginBottom: spacing.sm,
   },
+  prefBlock: { marginTop: spacing.md },
+  prefTitle: { ...typography.bodyBold, marginBottom: 2 },
+  prefCount: { ...typography.caption, color: colors.textMuted, fontWeight: '400' },
+  prefHint: { ...typography.caption, color: colors.textMuted, marginBottom: spacing.sm, lineHeight: 18 },
   error: { color: colors.danger, ...typography.caption, marginTop: spacing.xs, marginBottom: spacing.xs, textAlign: 'center' },
   primaryBtn: { backgroundColor: colors.primary, borderRadius: radius.pill, padding: spacing.md, alignItems: 'center', marginTop: spacing.md },
   primaryBtnText: { color: colors.card, fontWeight: '700', fontSize: 16 },

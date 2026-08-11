@@ -23,13 +23,16 @@ export async function createUserProfile(
   uid: string,
   email: string,
   displayName: string,
-  role: UserRole
+  role: UserRole,
+  preferredCategories: string[] = []
 ): Promise<void> {
   await setDoc(doc(db, 'users', uid), {
     uid,
     email,
     displayName,
     role,
+    // Only meaningful for buyers; sellers get an empty list.
+    preferredCategories: role === 'buyer' ? preferredCategories : [],
     createdAt: serverTimestamp(),
   });
 }
@@ -38,11 +41,20 @@ export async function signUp(
   email: string,
   password: string,
   displayName: string,
-  role: UserRole
+  role: UserRole,
+  preferredCategories: string[] = []
 ): Promise<void> {
   const credential = await createUserWithEmailAndPassword(auth, email, password);
   await updateProfile(credential.user, { displayName });
-  await createUserProfile(credential.user.uid, email, displayName, role);
+  await createUserProfile(credential.user.uid, email, displayName, role, preferredCategories);
+}
+
+/** Lets a buyer change their favourites later, from the profile screen. */
+export async function updatePreferredCategories(
+  uid: string,
+  preferredCategories: string[]
+): Promise<void> {
+  await setDoc(doc(db, 'users', uid), { preferredCategories }, { merge: true });
 }
 
 export async function signIn(email: string, password: string): Promise<void> {
@@ -61,6 +73,7 @@ export async function fetchUserProfile(uid: string): Promise<AppUser | null> {
     uid,
     displayName: data.displayName ?? '',
     role: data.role,
+    preferredCategories: data.preferredCategories ?? [],
   };
 }
 
@@ -94,6 +107,7 @@ export function subscribeToUserProfile(
         uid,
         displayName: data.displayName ?? '',
         role: data.role,
+        preferredCategories: data.preferredCategories ?? [],
       });
     },
     onError

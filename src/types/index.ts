@@ -5,7 +5,16 @@ export interface AppUser {
   displayName: string;
   phoneNumber?: string;
   role: UserRole;
+  /**
+   * Food categories a buyer said they like, up to three, chosen at signup.
+   * Drives the 추천 rail on the home screen. Absent for sellers, and for
+   * accounts created before this existed.
+   */
+  preferredCategories?: string[];
 }
+
+/** How many favourite categories a buyer may pick. */
+export const MAX_PREFERRED_CATEGORIES = 3;
 
 export interface Restaurant {
   restaurantId: string;

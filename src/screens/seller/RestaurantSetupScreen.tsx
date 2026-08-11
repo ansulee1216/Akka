@@ -8,6 +8,8 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -133,7 +135,19 @@ export default function RestaurantSetupScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView contentContainerStyle={{ padding: spacing.md }}>
+      {/* Keeps the focused field above the keyboard — without it, the lower
+          fields (상세 주소, 연락처) end up hidden behind it while typing. */}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? undefined : 'height'}
+      >
+      <ScrollView
+        contentContainerStyle={{ padding: spacing.md, paddingBottom: spacing.xl }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
+        automaticallyAdjustKeyboardInsets
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={typography.h1}>가게 등록</Text>
         <Text style={styles.subtitle}>마감 할인 판매를 시작하려면 가게 정보를 등록해주세요.</Text>
 
@@ -258,6 +272,7 @@ export default function RestaurantSetupScreen() {
           </Text>
         </Pressable>
       </ScrollView>
+      </KeyboardAvoidingView>
 
       <AddressSearchModal
         visible={searchOpen}

@@ -1,10 +1,22 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  Pressable,
+  ScrollView,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useApp } from '../../context/AppContext';
 import { uploadImage } from '../../services/imageService';
 import { isStorageEnabled } from '../../config/firebaseConfig';
 import ImagePickerField from '../../components/ImagePickerField';
+import TimePickerField from '../../components/TimePickerField';
+import { describeWindow, windowLengthMinutes } from '../../utils/time';
 import { colors, spacing, radius, typography } from '../../theme/theme';
 
 export default function CreateListingScreen({ navigation }: any) {
@@ -32,6 +44,11 @@ export default function CreateListingScreen({ navigation }: any) {
     }
     if (discounted >= original) {
       Alert.alert('가격 확인', '할인가는 정가보다 낮아야 해요.');
+      return;
+    }
+    const windowLength = windowLengthMinutes(pickupStart, pickupEnd);
+    if (!windowLength || windowLength < 5) {
+      Alert.alert('픽업 시간 확인', '픽업 종료 시간은 시작 시간보다 뒤여야 해요.');
       return;
     }
 
@@ -69,7 +86,20 @@ export default function CreateListingScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView contentContainerStyle={{ padding: spacing.md }}>
+      {/* Without this the keyboard sits on top of whichever field is focused
+          near the bottom of the form. `automaticallyAdjustKeyboardInsets`
+          handles it on iOS; KeyboardAvoidingView covers Android. */}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? undefined : 'height'}
+      >
+        <ScrollView
+          contentContainerStyle={{ padding: spacing.md, paddingBottom: spacing.xl }}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          automaticallyAdjustKeyboardInsets
+          showsVerticalScrollIndicator={false}
+        >
         <Text style={typography.h1}>새 상품 등록</Text>
         <Text style={styles.subtitle}>오늘 남은 음식을 마감 할인으로 올려보세요.</Text>
 
@@ -110,19 +140,19 @@ export default function CreateListingScreen({ navigation }: any) {
 
         <View style={styles.row}>
           <View style={styles.flex1}>
-            <Text style={styles.label}>픽업 시작</Text>
-            <TextInput style={styles.input} value={pickupStart} onChangeText={setPickupStart} placeholder="21:00" />
+            <TimePickerField label="픽업 시작" value={pickupStart} onChange={setPickupStart} />
           </View>
           <View style={styles.flex1}>
-            <Text style={styles.label}>픽업 종료</Text>
-            <TextInput style={styles.input} value={pickupEnd} onChangeText={setPickupEnd} placeholder="21:30" />
+            <TimePickerField label="픽업 종료" value={pickupEnd} onChange={setPickupEnd} />
           </View>
         </View>
+        <Text style={styles.windowHint}>픽업 가능 시간 {describeWindow(pickupStart, pickupEnd)}</Text>
 
         <Pressable style={styles.submitBtn} onPress={handleSubmit} disabled={submitting}>
           <Text style={styles.submitBtnText}>{submitting ? '등록 중...' : '상품 등록하기'}</Text>
         </Pressable>
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -137,6 +167,7 @@ const styles = StyleSheet.create({
   },
   multiline: { minHeight: 70, textAlignVertical: 'top' },
   row: { flexDirection: 'row', gap: spacing.md },
+  windowHint: { ...typography.caption, color: colors.textMuted, marginTop: spacing.sm },
   flex1: { flex: 1 },
   submitBtn: { marginTop: spacing.xl, backgroundColor: colors.primary, borderRadius: radius.pill, padding: spacing.md, alignItems: 'center', marginBottom: spacing.xl },
   submitBtnText: { color: colors.card, fontWeight: '700', fontSize: 16 },

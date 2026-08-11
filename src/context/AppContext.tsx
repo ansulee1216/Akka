@@ -5,6 +5,7 @@ import {
   subscribeToAuthChanges,
   subscribeToUserProfile,
   createUserProfile,
+  updatePreferredCategories,
   signOutUser,
 } from '../services/authService';
 import { UserRole } from '../types';
@@ -33,7 +34,12 @@ interface AppContextValue {
   profileError: string | null;
   /** Signed in, but no profile document exists — the account needs repairing. */
   needsProfileSetup: boolean;
-  completeProfile: (displayName: string, role: UserRole) => Promise<void>;
+  completeProfile: (
+    displayName: string,
+    role: UserRole,
+    preferredCategories?: string[]
+  ) => Promise<void>;
+  savePreferredCategories: (categories: string[]) => Promise<void>;
   retryProfile: () => void;
   firebaseUser: FirebaseUser | null;
   currentUser: AppUser | null;
@@ -220,6 +226,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await signOutUser();
   }, []);
 
+  const savePreferredCategories = useCallback(
+    async (categories: string[]) => {
+      if (!profile) throw new Error('로그인이 필요해요.');
+      await updatePreferredCategories(profile.uid, categories);
+      // The live profile listener picks the change up automatically.
+    },
+    [profile]
+  );
+
   const retryProfile = useCallback(() => {
     setProfileError(null);
     setNeedsProfileSetup(false);
@@ -228,13 +243,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Repairs an account that has auth credentials but no profile document.
   const completeProfile = useCallback(
-    async (displayName: string, role: UserRole) => {
+    async (displayName: string, role: UserRole, preferredCategories: string[] = []) => {
       if (!firebaseUser) throw new Error('로그인이 필요해요.');
       await createUserProfile(
         firebaseUser.uid,
         firebaseUser.email ?? '',
         displayName,
-        role
+        role,
+        preferredCategories
       );
       // The live profile listener picks the new document up automatically.
     },
@@ -301,6 +317,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     profileError,
     needsProfileSetup,
     completeProfile,
+    savePreferredCategories,
     retryProfile,
     firebaseUser,
     currentUser: profile,

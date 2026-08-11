@@ -1,69 +1,126 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   getLocationPermissionStatus,
   requestLocationPermission,
   getCurrentCoords,
+  describeCoords,
   type Coords,
   type PermissionStatus,
 } from '../services/locationService';
 
+const STORAGE_KEY = 'akka.buyerLocation';
+
+export interface SavedLocation {
+  coords: Coords;
+  label: string;
+  /** 'gps' was read from the device; 'manual' was pinned via address search. */
+  source: 'gps' | 'manual';
+}
+
 /**
- * The buyer's location, for sorting listings by distance.
+ * The buyer's location, either read from GPS or pinned manually.
  *
- * Deliberately non-blocking: on mount it only *checks* whether permission was
- * already granted and, if so, reads the position. It never prompts by itself.
- * Browsing works fine without location — it just falls back to newest-first —
- * so the permission dialog is only shown when the user taps to enable it.
- * Prompting on launch, before anyone has seen what the app does, is the
- * fastest way to get a permanent "Don't Allow".
+ * A manually chosen location always wins over GPS — someone browsing from home
+ * for a pickup near work has deliberately overridden where they are, and
+ * silently snapping back would undo that. The choice persists across restarts.
+ *
+ * Nothing prompts on mount: we only *check* existing permission. The system
+ * dialog appears when the user taps to enable it. Asking before anyone has seen
+ * what the app does is the quickest route to a permanent "Don't Allow", which
+ * on iOS can't be re-prompted, only fixed in Settings.
  */
 export function useBuyerLocation() {
-  const [coords, setCoords] = useState<Coords | null>(null);
+  const [location, setLocation] = useState<SavedLocation | null>(null);
   const [status, setStatus] = useState<PermissionStatus>('undetermined');
   const [loading, setLoading] = useState(true);
+  const mounted = useRef(true);
+
+  const persist = useCallback((next: SavedLocation) => {
+    if (!mounted.current) return;
+    setLocation(next);
+    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next)).catch(() => {
+      // Losing the cached location only means re-picking it next launch.
+    });
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
+    mounted.current = true;
 
     (async () => {
+      let saved: SavedLocation | null = null;
+      try {
+        const stored = await AsyncStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored) as SavedLocation;
+          if (parsed?.coords) saved = parsed;
+        }
+      } catch {
+        // A corrupt entry shouldn't block startup; fall through to GPS.
+      }
+
+      if (!mounted.current) return;
+      if (saved) setLocation(saved);
+
       const current = await getLocationPermissionStatus();
-      if (cancelled) return;
+      if (!mounted.current) return;
       setStatus(current);
 
-      if (current === 'granted') {
-        const position = await getCurrentCoords();
-        if (!cancelled && position) setCoords(position);
+      // Refresh from GPS only when the user hasn't deliberately pinned a spot.
+      if (current === 'granted' && saved?.source !== 'manual') {
+        const coords = await getCurrentCoords();
+        if (mounted.current && coords) {
+          const label = (await describeCoords(coords)) ?? '현재 위치';
+          persist({ coords, label, source: 'gps' });
+        }
       }
-      if (!cancelled) setLoading(false);
+
+      if (mounted.current) setLoading(false);
     })();
 
     return () => {
-      cancelled = true;
+      mounted.current = false;
     };
-  }, []);
+  }, [persist]);
 
-  /** Call from a user action — this is what shows the system permission dialog. */
-  const enableLocation = useCallback(async () => {
+  /** Call from a tap — this is what shows the system permission dialog. */
+  const useCurrentLocation = useCallback(async (): Promise<PermissionStatus> => {
     setLoading(true);
     try {
       const result = await requestLocationPermission();
       setStatus(result);
-      if (result === 'granted') {
-        const position = await getCurrentCoords();
-        if (position) setCoords(position);
+      if (result !== 'granted') return result;
+
+      const coords = await getCurrentCoords(true);
+      if (coords) {
+        const label = (await describeCoords(coords)) ?? '현재 위치';
+        persist({ coords, label, source: 'gps' });
       }
       return result;
     } finally {
-      setLoading(false);
+      if (mounted.current) setLoading(false);
     }
+  }, [persist]);
+
+  /** Pin a location chosen from address search. */
+  const setManualLocation = useCallback(
+    (coords: Coords, label: string) => persist({ coords, label, source: 'manual' }),
+    [persist]
+  );
+
+  const clearLocation = useCallback(() => {
+    setLocation(null);
+    AsyncStorage.removeItem(STORAGE_KEY).catch(() => {});
   }, []);
 
-  /** Re-read position without re-prompting, e.g. on pull-to-refresh. */
-  const refreshLocation = useCallback(async () => {
-    if (status !== 'granted') return;
-    const position = await getCurrentCoords();
-    if (position) setCoords(position);
-  }, [status]);
-
-  return { coords, status, loading, enableLocation, refreshLocation };
+  return {
+    location,
+    coords: location?.coords ?? null,
+    label: location?.label ?? null,
+    status,
+    loading,
+    useCurrentLocation,
+    setManualLocation,
+    clearLocation,
+  };
 }
