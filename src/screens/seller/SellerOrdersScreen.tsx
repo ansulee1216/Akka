@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  FlatList,
+  SectionList,
   Pressable,
   Alert,
   Modal,
@@ -12,9 +12,11 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../../context/AppContext';
 import { colors, spacing, radius, typography } from '../../theme/theme';
 import { Order } from '../../types';
+import { toMillis } from '../../utils/listing';
 
 const statusLabel: Record<Order['status'], string> = {
   reserved: '픽업 대기중',
@@ -26,17 +28,24 @@ const statusLabel: Record<Order['status'], string> = {
 export default function SellerOrdersScreen() {
   const { myRestaurant, sellerOrders, listings, markPickedUp, markNoShow } = useApp();
 
-  // Code entry uses our own modal rather than Alert.prompt, which only exists
-  // on iOS — on Android that call silently does nothing, so the old fallback
+  // Code entry uses a custom modal rather than Alert.prompt, which exists only
+  // on iOS — on Android that call silently does nothing, and the old fallback
   // confirmed pickups without ever checking the code.
   const [verifying, setVerifying] = useState<Order | null>(null);
   const [codeInput, setCodeInput] = useState('');
   const [codeError, setCodeError] = useState<string | null>(null);
 
-  if (!myRestaurant) return null;
+  const sections = useMemo(() => {
+    const byNewest = (a: Order, b: Order) => toMillis(b.createdAt) - toMillis(a.createdAt);
+    const pending = sellerOrders.filter((o) => o.status === 'reserved').sort(byNewest);
+    const done = sellerOrders.filter((o) => o.status !== 'reserved').sort(byNewest);
+    return [
+      { title: '픽업 대기', data: pending, count: pending.length },
+      { title: '완료된 예약', data: done, count: done.length },
+    ].filter((s) => s.data.length > 0);
+  }, [sellerOrders]);
 
-  const pending = sellerOrders.filter((o) => o.status === 'reserved');
-  const past = sellerOrders.filter((o) => o.status !== 'reserved');
+  if (!myRestaurant) return null;
 
   const openVerify = (order: Order) => {
     setVerifying(order);
@@ -77,31 +86,45 @@ export default function SellerOrdersScreen() {
 
   const renderItem = ({ item }: { item: Order }) => {
     const listing = listings.find((l) => l.listingId === item.listingId);
+    const isPending = item.status === 'reserved';
+
     return (
-      <View style={styles.card}>
+      <View style={[styles.card, isPending && styles.cardPending]}>
         <View style={styles.cardTop}>
           <View style={{ flex: 1 }}>
-            <Text style={typography.bodyBold}>{listing?.title ?? '(삭제된 상품)'}</Text>
+            <Text style={styles.title} numberOfLines={1}>
+              {listing?.title ?? '(삭제된 상품)'}
+            </Text>
             <Text style={styles.meta}>
-              수량 {item.quantity}개 · ₩{item.totalPrice.toLocaleString()}
+              {item.quantity}개 · ₩{item.totalPrice.toLocaleString()} · 픽업 시 결제
             </Text>
           </View>
-          {item.status !== 'reserved' && (
+          {!isPending && (
             <View style={styles.statusBadge}>
               <Text style={styles.statusText}>{statusLabel[item.status]}</Text>
             </View>
           )}
         </View>
 
-        {item.status === 'reserved' && (
-          <View style={styles.actions}>
-            <Pressable style={styles.primaryBtn} onPress={() => openVerify(item)}>
-              <Text style={styles.primaryBtnText}>픽업 확인</Text>
-            </Pressable>
-            <Pressable style={styles.secondaryBtn} onPress={() => handleNoShow(item)}>
-              <Text style={styles.secondaryBtnText}>노쇼</Text>
-            </Pressable>
-          </View>
+        {isPending && (
+          <>
+            {/* Shown so the shop can eyeball the code the buyer holds up,
+                without needing to type it for a match. */}
+            <View style={styles.codeRow}>
+              <Text style={styles.codeLabel}>픽업 코드</Text>
+              <Text style={styles.code}>{item.pickupCode}</Text>
+            </View>
+
+            <View style={styles.actions}>
+              <Pressable style={styles.primaryBtn} onPress={() => openVerify(item)}>
+                <Ionicons name="checkmark" size={16} color={colors.card} />
+                <Text style={styles.primaryBtnText}>픽업 확인</Text>
+              </Pressable>
+              <Pressable style={styles.secondaryBtn} onPress={() => handleNoShow(item)}>
+                <Text style={styles.secondaryBtnText}>노쇼</Text>
+              </Pressable>
+            </View>
+          </>
         )}
       </View>
     );
@@ -109,17 +132,33 @@ export default function SellerOrdersScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <Text style={typography.h1}>예약 현황</Text>
-        <Text style={styles.subtitle}>대기중 {pending.length}건</Text>
-      </View>
-
-      <FlatList
-        data={[...pending, ...past]}
+      <SectionList
+        sections={sections}
         keyExtractor={(item) => item.orderId}
         renderItem={renderItem}
-        contentContainerStyle={{ padding: spacing.md, gap: spacing.md }}
-        ListEmptyComponent={<Text style={styles.empty}>아직 들어온 예약이 없어요.</Text>}
+        stickySectionHeadersEnabled={false}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.list}
+        ListHeaderComponent={
+          <View style={styles.header}>
+            <Text style={typography.h1}>예약 현황</Text>
+            <Text style={styles.headerSub}>{myRestaurant.name}</Text>
+          </View>
+        }
+        renderSectionHeader={({ section }) => (
+          <Text style={styles.sectionHeader}>
+            {section.title} <Text style={styles.sectionCount}>{section.count}</Text>
+          </Text>
+        )}
+        ListEmptyComponent={
+          <View style={styles.empty}>
+            <Ionicons name="clipboard-outline" size={32} color={colors.textMuted} />
+            <Text style={styles.emptyTitle}>아직 들어온 예약이 없어요</Text>
+            <Text style={styles.emptyBody}>
+              상품을 올리면 고객이 예약할 수 있어요. 예약이 들어오면 여기에 표시돼요.
+            </Text>
+          </View>
+        }
       />
 
       <Modal visible={!!verifying} transparent animationType="fade" onRequestClose={() => setVerifying(null)}>
@@ -141,6 +180,7 @@ export default function SellerOrdersScreen() {
               keyboardType="number-pad"
               maxLength={4}
               placeholder="0000"
+              placeholderTextColor={colors.textMuted}
               autoFocus
             />
 
@@ -161,43 +201,84 @@ export default function SellerOrdersScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  header: { paddingHorizontal: spacing.md, paddingTop: spacing.sm },
-  subtitle: { ...typography.caption, color: colors.textMuted, marginTop: 2 },
+  list: { padding: spacing.md, paddingBottom: spacing.xl },
+  header: { marginBottom: spacing.sm },
+  headerSub: { ...typography.caption, color: colors.textMuted, marginTop: 2 },
+
+  sectionHeader: {
+    ...typography.bodyBold,
+    color: colors.text,
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  sectionCount: { color: colors.textMuted, fontWeight: '400' },
+
   card: {
     backgroundColor: colors.card,
     borderRadius: radius.md,
-    padding: spacing.md,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
   },
-  cardTop: { flexDirection: 'row', alignItems: 'center' },
+  cardPending: { borderColor: colors.primary },
+  cardTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  title: { ...typography.bodyBold, color: colors.text },
   meta: { ...typography.caption, color: colors.textMuted, marginTop: 2 },
   statusBadge: {
     backgroundColor: colors.background,
     borderRadius: radius.pill,
     paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderWidth: 1,
+    paddingVertical: 5,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
   },
-  statusText: { ...typography.caption, color: colors.textMuted },
+  statusText: { ...typography.caption, fontSize: 12, color: colors.textMuted },
+
+  codeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.sm,
+    backgroundColor: colors.primarySoft,
+  },
+  codeLabel: { ...typography.caption, color: colors.primaryDark },
+  code: { fontSize: 20, fontWeight: '700', color: colors.primaryDark, letterSpacing: 3 },
+
   actions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
   primaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    flex: 1,
     backgroundColor: colors.primary,
     borderRadius: radius.pill,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.sm + 2,
   },
   primaryBtnText: { color: colors.card, fontWeight: '700', fontSize: 14 },
   secondaryBtn: {
     borderRadius: radius.pill,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderWidth: 1,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm + 2,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
   },
   secondaryBtnText: { ...typography.caption, color: colors.textMuted, fontWeight: '600' },
-  empty: { textAlign: 'center', color: colors.textMuted, marginTop: spacing.xl, ...typography.body },
+
+  empty: { alignItems: 'center', paddingTop: spacing.xl, gap: spacing.sm },
+  emptyTitle: { ...typography.bodyBold, color: colors.text },
+  emptyBody: {
+    ...typography.caption,
+    color: colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 20,
+    paddingHorizontal: spacing.lg,
+  },
+
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.45)',
@@ -224,7 +305,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 8,
     textAlign: 'center',
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
     borderRadius: radius.md,
     paddingVertical: spacing.sm,

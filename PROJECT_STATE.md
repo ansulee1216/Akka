@@ -80,7 +80,11 @@ Everything syncs live across devices via Firestore listeners. Reservations use a
 - Publish the current `firestore.rules` in the Firebase console. The `orders` rules changed (split `get` / `list`) and the seller's reservations screen may throw a permissions error until it's republished. They were blocked on finding the Publish button — the console UI keeps changing, so ask for a screenshot. Deploying via the Firebase CLI is the fallback.
 - Run `npm install` in `~/Documents/akka` (node_modules wasn't copied over, plus two newer packages).
 
-**Next up:** UI/UX polish (the owner has flagged wanting this), then search/filters/favourites and ratings. A map view is deliberately deferred — Google Maps on Android needs its own billing account. Push notifications need a custom dev build; they no longer work in Expo Go.
+**Next up:** ratings/reviews, onboarding and empty-state polish. A map view is deliberately deferred — Google Maps on Android needs its own billing account. Push notifications need a custom dev build; they no longer work in Expo Go.
+
+**Deferred on purpose — seller weekly trends.** The dashboard shows today only, so a shop deciding how much to list tonight has no history to judge by (last Tuesday sold out in 20 minutes; Wednesday half went to waste — the app forgets both overnight). The fix is small: group orders by day instead of filtering to today, and show last 7 days of listed-vs-sold plus revenue. Parked until a shop is doing real volume, since a week of near-empty bars teaches nobody anything. This is roughly what 쿠팡이츠 gives merchants, and it's what turns the dashboard from reporting into planning.
+
+**Note on 매출.** The revenue figure counts orders actually collected today — not reserved ones, since with pay-at-pickup the money isn't real until someone walks in. Unlike 배민/쿠팡이츠, this is *not* a settlement figure; no money flows through Akka. When Toss payments land, sellers will expect the settlement view (owed, paid, commission taken) and that needs designing properly rather than growing this number into it.
 
 **Before any public launch:**
 - Harden `firestore.rules`. Any signed-in user can currently adjust a listing's `quantityRemaining` (that's how client-side reservations work), and `allow list` on orders is broad. Both want Cloud Functions.
