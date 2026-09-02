@@ -9,9 +9,10 @@ import { useBuyerLocation } from '../../hooks/useBuyerLocation';
 import { useRecentSearches } from '../../hooks/useRecentSearches';
 import ListingCard from '../../components/ListingCard';
 import { buildFeed, matchesQuery, byDistance, byNewest } from '../../utils/sections';
+import { summariseByRestaurant, formatRating } from '../../utils/reviews';
 
 export default function SearchScreen({ navigation }: any) {
-  const { listings, restaurants } = useApp();
+  const { listings, restaurants, reviews } = useApp();
   const now = useNow();
   const { coords } = useBuyerLocation();
   const { recent, addSearch, removeSearch, clearSearches } = useRecentSearches();
@@ -24,6 +25,7 @@ export default function SearchScreen({ navigation }: any) {
     () => buildFeed(listings, restaurants, coords, now),
     [listings, restaurants, coords, now]
   );
+  const ratings = useMemo(() => summariseByRestaurant(reviews), [reviews]);
 
   const results = useMemo(() => {
     if (!submitted.trim()) return [];
@@ -85,6 +87,8 @@ export default function SearchScreen({ navigation }: any) {
               listing={item.listing}
               restaurant={item.restaurant}
               distance={item.distance}
+              rating={formatRating(ratings.get(item.listing.restaurantId))}
+              ratingCount={ratings.get(item.listing.restaurantId)?.count}
               now={now}
               onPress={() =>
                 navigation.navigate('ListingDetail', { listingId: item.listing.listingId })

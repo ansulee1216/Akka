@@ -68,6 +68,24 @@ export async function createRestaurant(
   return ref.id;
 }
 
+/**
+ * Updates a shop's own details.
+ *
+ * `ownerUid` and `createdAt` are deliberately not updatable — ownership isn't
+ * something a shop should be able to reassign from the client, and the rules
+ * reject it anyway.
+ */
+export async function updateRestaurant(
+  restaurantId: string,
+  data: Partial<Omit<Restaurant, 'restaurantId' | 'ownerUid' | 'createdAt' | 'isVerified'>>
+): Promise<void> {
+  await updateDoc(doc(db, 'restaurants', restaurantId), stripUndefined(data));
+}
+
+export async function deleteRestaurant(restaurantId: string): Promise<void> {
+  await deleteDoc(doc(db, 'restaurants', restaurantId));
+}
+
 export async function findRestaurantByOwner(ownerUid: string): Promise<Restaurant | null> {
   const q = query(collection(db, 'restaurants'), where('ownerUid', '==', ownerUid));
   const snap = await getDocs(q);

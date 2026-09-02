@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import type { User as FirebaseUser } from 'firebase/auth';
-import { AppUser, Restaurant, Listing, Order, PaymentMethod } from '../types';
+import { AppUser, Restaurant, Listing, Order, PaymentMethod, Review } from '../types';
 import {
   subscribeToAuthChanges,
   subscribeToUserProfile,
@@ -15,6 +15,7 @@ import {
   subscribeToOrdersForBuyer,
   subscribeToOrdersForRestaurant,
   createRestaurant,
+  updateRestaurant as updateRestaurantService,
   createListing as createListingService,
   updateListing as updateListingService,
   deleteListing as deleteListingService,
@@ -24,6 +25,7 @@ import {
   markNoShow as markNoShowService,
   cancelOrder as cancelOrderService,
 } from '../services/firestoreService';
+import { subscribeToReviews, submitReview as submitReviewService } from '../services/reviewService';
 import { isFirebaseConfigured } from '../config/firebaseConfig';
 import { Restaurant as RestaurantType } from '../types';
 
@@ -50,9 +52,19 @@ interface AppContextValue {
   myRestaurant: Restaurant | undefined;
   buyerOrders: Order[];
   sellerOrders: Order[];
+  reviews: Review[];
+  submitReview: (params: {
+    order: Order;
+    rating: number;
+    comment?: string;
+    listingTitle?: string;
+  }) => Promise<void>;
 
   registerRestaurant: (
     data: Omit<Restaurant, 'restaurantId' | 'ownerUid' | 'isVerified' | 'createdAt'>
+  ) => Promise<void>;
+  updateRestaurant: (
+    data: Partial<Omit<Restaurant, 'restaurantId' | 'ownerUid' | 'createdAt' | 'isVerified'>>
   ) => Promise<void>;
   createListing: (
     data: Omit<Listing, 'listingId' | 'quantityRemaining' | 'status' | 'createdAt'>
@@ -86,6 +98,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [listings, setListings] = useState<Listing[]>([]);
   const [buyerOrders, setBuyerOrders] = useState<Order[]>([]);
   const [sellerOrders, setSellerOrders] = useState<Order[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
 
   // Auth session — skipped entirely until a real Firebase project is configured,
   // so the app doesn't crash before you've pasted your config in.
@@ -192,9 +205,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!isFirebaseConfigured) return;
     const unsubRestaurants = subscribeToRestaurants(setRestaurants);
     const unsubListings = subscribeToListings(setListings);
+    // Reviews are public — buyers need shop ratings before signing in.
+    const unsubReviews = subscribeToReviews(setReviews);
     return () => {
       unsubRestaurants();
       unsubListings();
+      unsubReviews();
     };
   }, []);
 
@@ -265,6 +281,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [profile]
   );
 
+  const updateRestaurant: AppContextValue['updateRestaurant'] = useCallback(
+    async (data) => {
+      if (!myRestaurant) throw new Error('가게 정보를 찾을 수 없어요.');
+      await updateRestaurantService(myRestaurant.restaurantId, data);
+    },
+    [myRestaurant]
+  );
+
   const createListing: AppContextValue['createListing'] = useCallback(async (data) => {
     await createListingService(data);
   }, []);
@@ -290,6 +314,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await setListingStatusService(listingId, status);
     },
     []
+  );
+
+  const submitReview: AppContextValue['submitReview'] = useCallback(
+    async ({ order, rating, comment, listingTitle }) => {
+      if (!profile) throw new Error('로그인이 필요해요.');
+      await submitReviewService({
+        order,
+        buyerName: profile.displayName || '고객',
+        rating,
+        comment,
+        listingTitle,
+      });
+    },
+    [profile]
   );
 
   const markPickedUp: AppContextValue['markPickedUp'] = useCallback(async (orderId) => {
@@ -327,7 +365,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     myRestaurant,
     buyerOrders,
     sellerOrders,
+    reviews,
+    submitReview,
     registerRestaurant,
+    updateRestaurant,
     createListing,
     updateListing,
     deleteListing,

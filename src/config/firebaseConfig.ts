@@ -28,13 +28,11 @@ export const isFirebaseConfigured =
   firebaseConfig.apiKey !== 'REPLACE_ME' && firebaseConfig.projectId !== 'REPLACE_ME';
 
 // ── Photo uploads ───────────────────────────────────────────────────────────
-// Firebase Storage (where photos live) requires the paid Blaze plan with a
-// billing account, even though usage at this scale would cost ~$0. Until you
-// enable it, photo pickers stay hidden so nobody hits an upload error.
+// Storage is live: the project is on Blaze, the bucket exists (us-central1,
+// chosen because only the US regions qualify for Cloud Storage's Always Free
+// tier), and storage.rules is deployed.
 //
-// To turn photos on later:
-//   1. Firebase Console > Databases & Storage > Storage > upgrade + enable.
-//   2. Paste storage.rules into its Rules tab and Publish.
-//   3. Flip this to true.
-// All the upload code is already written and waiting.
-export const isStorageEnabled = false;
+// Setting this to false hides every photo picker without breaking anything —
+// useful if uploads ever need to be switched off in a hurry. Existing photos
+// keep displaying either way; only the ability to add or change one is gated.
+export const isStorageEnabled = true;

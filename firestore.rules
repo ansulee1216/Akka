@@ -33,6 +33,9 @@ service cloud.firestore {
     }
 
     // Each user's own profile (display name, role). Only they can read/write it.
+    // `write` covers delete, which account deletion relies on — App Store
+    // guideline 5.1.1(v) requires users to be able to remove their own account
+    // and data from inside the app.
     match /users/{uid} {
       allow read, write: if isSignedIn() && request.auth.uid == uid;
     }
@@ -58,6 +61,32 @@ service cloud.firestore {
         (isSignedIn() &&
          request.resource.data.diff(resource.data).affectedKeys()
            .hasOnly(['quantityRemaining', 'status']));
+    }
+
+    // Reviews are public to read — buyers need to see a shop's rating before
+    // signing in, and a hidden review is worthless to everyone.
+    //
+    // The document ID is the orderId, which is what makes one-review-per-pickup
+    // enforceable here: a buyer may only write to the document whose ID matches
+    // an order they own, so they can't review a pickup that wasn't theirs, and
+    // can't create a second review for the same one.
+    match /reviews/{orderId} {
+      allow read: if true;
+
+      allow create, update: if isSignedIn()
+        && request.resource.data.buyerUid == request.auth.uid
+        && request.resource.data.rating is int
+        && request.resource.data.rating >= 1
+        && request.resource.data.rating <= 5
+        // The order must exist, belong to this user, and actually have been
+        // collected — rating a shop you never picked up from isn't an opinion.
+        && exists(/databases/$(database)/documents/orders/$(orderId))
+        && get(/databases/$(database)/documents/orders/$(orderId)).data.buyerUid == request.auth.uid
+        && get(/databases/$(database)/documents/orders/$(orderId)).data.status == 'pickedUp';
+
+      // Buyers can retract their own review. Shops deliberately cannot delete
+      // reviews about themselves.
+      allow delete: if isSignedIn() && resource.data.buyerUid == request.auth.uid;
     }
 
     // Orders are only visible to the buyer who made them or the restaurant

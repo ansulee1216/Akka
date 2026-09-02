@@ -20,6 +20,41 @@ async function compress(uri: string): Promise<string> {
   return result.uri;
 }
 
+export type PhotoAction = 'unchanged' | 'remove' | 'upload';
+
+/**
+ * Decides what a save needs to do about the photo.
+ *
+ * When editing, the field starts out holding the *remote* URL of the existing
+ * photo. Uploading that again on every save would cost money, burn bandwidth
+ * and create a duplicate file for no reason — so an untouched photo has to be
+ * recognised and left alone. Only a freshly picked local file:// URI is new.
+ */
+export function photoAction(current: string | null, original?: string): PhotoAction {
+  if (!current) return original ? 'remove' : 'unchanged';
+  if (current === original) return 'unchanged';
+  return 'upload';
+}
+
+/**
+ * Resolves the photo URL to save, uploading only when the photo actually
+ * changed. Returns undefined when there should be no photo.
+ */
+export async function resolvePhotoUrl(
+  current: string | null,
+  original: string | undefined,
+  folder: string
+): Promise<string | undefined> {
+  switch (photoAction(current, original)) {
+    case 'unchanged':
+      return original;
+    case 'remove':
+      return undefined;
+    case 'upload':
+      return uploadImage(current as string, folder);
+  }
+}
+
 /**
  * Uploads a local image file to Firebase Storage and returns its public URL.
  *

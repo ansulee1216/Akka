@@ -59,7 +59,15 @@ Everything syncs live across devices via Firestore listeners. Reservations use a
 
 **Listing expiry is computed on-device** (`src/utils/listing.ts`), not stored. Flipping a status field on a schedule would need a Cloud Function, which requires the paid Blaze plan. Trade-off: expiry follows each phone's clock. Logic is tested — including midnight-crossing pickup windows.
 
-**Photo upload is built but switched off.** Firebase Storage began requiring the paid Blaze plan (credit card) in February 2026. The owner chose to stay free for now. All the code exists; flip `isStorageEnabled` to `true` in `src/config/firebaseConfig.ts` once Storage is enabled and `storage.rules` is published. The flag only hides the UI — the packages are still bundled.
+**Photo upload is live.** The project is on Blaze, the Storage bucket is in **us-central1** and `storage.rules` is deployed. The bucket is US rather than Korea because only us-central1/us-east1/us-west1 qualify for Cloud Storage's Always Free tier; the cost of that is roughly 100–200ms of extra latency on a Korean user's first load of each image, after which it's cached. Firestore stays in asia-northeast3, which is what actually matters — that's the round trip on every reservation.
+
+`isStorageEnabled` in `src/config/firebaseConfig.ts` remains as a kill switch: setting it to `false` hides every photo picker without breaking anything, and existing photos still display.
+
+Photos are resized to 1200px wide and JPEG-compressed at 0.7 before upload, so a ~4MB camera photo lands at roughly 200KB.
+
+**Editing never re-uploads an unchanged photo.** `photoAction()` in `imageService.ts` distinguishes an untouched remote URL from a freshly picked `file://` URI. Without it, every save of an edited listing would upload a duplicate copy and bill for it. This is unit-tested, including that five consecutive saves without touching the photo perform zero uploads.
+
+**A budget alert is set in Google Cloud billing.** Blaze has no hard spending cap — it only alerts. At this scale any alert at all means something is wrong (a runaway upload loop, or abuse), so it's worth investigating same-day rather than ignoring.
 
 **Location permission is never requested on launch.** `useBuyerLocation` only *checks* existing permission on mount; the system dialog appears solely when the user taps the prompt on the browse screen. Asking before someone has seen what the app does is the fastest route to a permanent "Don't Allow", which on iOS can't be re-prompted — only fixed in Settings. Browsing works fully without location, falling back to newest-first.
 

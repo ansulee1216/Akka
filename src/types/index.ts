@@ -75,3 +75,30 @@ export interface Order {
   status: OrderStatus;
   createdAt: number;
 }
+
+/**
+ * A buyer's review of a completed pickup.
+ *
+ * The document ID *is* the orderId. That's deliberate: it makes one-review-per-
+ * order a property of the database rather than something the app has to police,
+ * so a double-tap or a retry can't produce two reviews for the same pickup.
+ */
+export interface Review {
+  /** Same value as orderId — see above. */
+  reviewId: string;
+  orderId: string;
+  restaurantId: string;
+  buyerUid: string;
+  /** Snapshotted so reviews still read correctly if a display name changes. */
+  buyerName: string;
+  /** Whole stars, 1–5. */
+  rating: number;
+  /** Optional — plenty of people rate without writing anything. */
+  comment?: string;
+  /** Snapshotted so a review still makes sense if the listing is deleted. */
+  listingTitle?: string;
+  createdAt: number;
+}
+
+export const MIN_RATING = 1;
+export const MAX_RATING = 5;

@@ -14,6 +14,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useApp } from '../../context/AppContext';
 import TimePickerField from '../../components/TimePickerField';
+import ImagePickerField from '../../components/ImagePickerField';
+import { resolvePhotoUrl } from '../../services/imageService';
+import { isStorageEnabled } from '../../config/firebaseConfig';
 import { describeWindow, windowLengthMinutes } from '../../utils/time';
 import { colors, spacing, radius, typography } from '../../theme/theme';
 import { SellerStackParamList } from '../../navigation/types';
@@ -32,6 +35,9 @@ export default function EditListingScreen({ route, navigation }: Props) {
   const [quantity, setQuantity] = useState(String(listing?.quantityTotal ?? ''));
   const [pickupStart, setPickupStart] = useState(listing?.pickupWindowStart ?? '');
   const [pickupEnd, setPickupEnd] = useState(listing?.pickupWindowEnd ?? '');
+  // Starts as the existing remote URL; only becomes a local file:// URI if the
+  // seller picks a new one, which is how we know whether to upload.
+  const [photoUri, setPhotoUri] = useState<string | null>(listing?.photoUrl ?? null);
   const [saving, setSaving] = useState(false);
 
   if (!listing) {
@@ -65,6 +71,10 @@ export default function EditListingScreen({ route, navigation }: Props) {
 
     setSaving(true);
     try {
+      const photoUrl = isStorageEnabled
+        ? await resolvePhotoUrl(photoUri, listing.photoUrl, 'listings')
+        : listing.photoUrl;
+
       await updateListing(listing.listingId, {
         title: title.trim(),
         description: description.trim(),
@@ -73,6 +83,7 @@ export default function EditListingScreen({ route, navigation }: Props) {
         quantityTotal: qty,
         pickupWindowStart: pickupStart,
         pickupWindowEnd: pickupEnd,
+        photoUrl,
       });
       navigation.goBack();
     } catch (e: any) {
@@ -101,6 +112,15 @@ export default function EditListingScreen({ route, navigation }: Props) {
               이미 {claimed}개가 예약됐어요. 수량은 {claimed}개 이상으로만 바꿀 수 있어요.
             </Text>
           </View>
+        )}
+
+        {isStorageEnabled && (
+          <ImagePickerField
+            value={photoUri}
+            onChange={setPhotoUri}
+            label="사진"
+            busy={saving && !!photoUri}
+          />
         )}
 
         <Text style={styles.label}>상품명</Text>

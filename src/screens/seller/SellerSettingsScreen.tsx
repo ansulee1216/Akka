@@ -5,8 +5,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../../context/AppContext';
 import { colors, spacing, radius, typography, categoryStyle } from '../../theme/theme';
 import { primaryCategory, formatCategories } from '../../utils/restaurant';
+import DeleteAccountSection from '../../components/DeleteAccountSection';
 
-export default function SellerSettingsScreen() {
+export default function SellerSettingsScreen({ navigation }: any) {
   const { currentUser, myRestaurant, signOut } = useApp();
 
   const handleSignOut = () => {
@@ -52,13 +53,17 @@ export default function SellerSettingsScreen() {
           </View>
         </View>
 
-        <Text style={styles.note}>
-          가게 정보 수정 기능은 곧 추가될 예정이에요. 지금 바꿔야 할 내용이 있다면 알려주세요.
-        </Text>
+        <Pressable style={styles.navRow} onPress={() => navigation.navigate('EditShop')}>
+          <Ionicons name="create-outline" size={20} color={colors.text} />
+          <Text style={styles.navRowText}>가게 정보 수정</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+        </Pressable>
 
         <Pressable style={styles.logoutBtn} onPress={handleSignOut}>
           <Text style={styles.logoutBtnText}>로그아웃</Text>
         </Pressable>
+
+        <DeleteAccountSection />
       </ScrollView>
     </SafeAreaView>
   );
@@ -106,12 +111,18 @@ const styles = StyleSheet.create({
   infoSub: { ...typography.caption, color: colors.textMuted, marginTop: 2 },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.borderSoft },
 
-  note: {
-    ...typography.caption,
-    color: colors.textMuted,
+  navRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
     marginTop: spacing.md,
-    lineHeight: 18,
+    padding: spacing.md,
+    backgroundColor: colors.card,
+    borderRadius: radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
   },
+  navRowText: { ...typography.body, color: colors.text, flex: 1 },
 
   logoutBtn: { marginTop: spacing.lg, padding: spacing.md, alignItems: 'center' },
   logoutBtnText: { ...typography.body, color: colors.danger },

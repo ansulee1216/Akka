@@ -76,10 +76,25 @@ export function sortFavorites(shops: FavoriteShop[], sort: FavoriteSort): Favori
   });
 }
 
-/** "3일 전" / "어제" / "오늘" — coarse on purpose; exact dates aren't useful here. */
-export function relativeDay(timestamp: number, now: number = Date.now()): string {
-  if (!timestamp) return '';
+/**
+ * "3일 전" / "어제" / "오늘" — coarse on purpose; exact dates aren't useful here.
+ *
+ * Takes the raw value rather than milliseconds, and normalises it. Firestore
+ * hands back a Timestamp *object*, and subtracting one of those from a number
+ * silently produces nonsense rather than an error — which is how a review
+ * posted seconds ago ended up reading "54년 전".
+ *
+ * A missing timestamp means `serverTimestamp()` hasn't synced back yet, which
+ * only happens for something just written — so "방금 전" is both accurate and
+ * better than a blank space.
+ */
+export function relativeDay(value: unknown, now: number = Date.now()): string {
+  const timestamp = toMillis(value);
+  if (!timestamp) return '방금 전';
+
   const days = Math.floor((now - timestamp) / (24 * 60 * 60 * 1000));
+  if (!Number.isFinite(days)) return '방금 전';
+
   if (days <= 0) return '오늘';
   if (days === 1) return '어제';
   if (days < 7) return `${days}일 전`;

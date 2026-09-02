@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../../context/AppContext';
 import CategoryChips from '../../components/CategoryChips';
+import DeleteAccountSection from '../../components/DeleteAccountSection';
 import { colors, spacing, radius, typography } from '../../theme/theme';
 import { MAX_PREFERRED_CATEGORIES } from '../../types';
 
@@ -124,6 +125,8 @@ export default function BuyerProfileScreen({ navigation }: any) {
         <Pressable style={styles.logoutBtn} onPress={handleSignOut}>
           <Text style={styles.logoutBtnText}>로그아웃</Text>
         </Pressable>
+
+        <DeleteAccountSection />
       </ScrollView>
     </SafeAreaView>
   );

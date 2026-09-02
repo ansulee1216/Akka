@@ -30,6 +30,9 @@ interface Props {
   restaurant?: Restaurant;
   /** Metres from the buyer, when known. */
   distance?: number | null;
+  /** Shop's average rating, e.g. "4.5". Omitted when it has no reviews yet. */
+  rating?: string | null;
+  ratingCount?: number;
   onPress: () => void;
   /** `compact` is the size used inside the home screen's horizontal rails. */
   variant?: 'full' | 'compact';
@@ -49,6 +52,8 @@ export default function ListingCard({
   listing,
   restaurant,
   distance,
+  rating,
+  ratingCount,
   onPress,
   variant = 'full',
   now = Date.now(),
@@ -81,9 +86,20 @@ export default function ListingCard({
       </View>
 
       <View style={[styles.body, compact && styles.bodyCompact]}>
-        <Text style={styles.restaurantName} numberOfLines={1}>
-          {restaurant?.name}
-        </Text>
+        <View style={styles.shopRow}>
+          <Text style={styles.restaurantName} numberOfLines={1}>
+            {restaurant?.name}
+          </Text>
+          {rating ? (
+            <View style={styles.ratingRow}>
+              <Ionicons name="star" size={11} color={colors.accent} />
+              <Text style={styles.ratingText}>
+                {rating}
+                {ratingCount ? ` (${ratingCount})` : ''}
+              </Text>
+            </View>
+          ) : null}
+        </View>
         <Text style={[styles.title, compact && styles.titleCompact]} numberOfLines={1}>
           {listing.title}
         </Text>
@@ -152,7 +168,10 @@ const styles = StyleSheet.create({
 
   body: { padding: spacing.md, paddingTop: spacing.sm + 2 },
   bodyCompact: { paddingHorizontal: spacing.sm + 2, paddingVertical: spacing.sm },
-  restaurantName: { ...typography.caption, color: colors.textMuted, fontSize: 12 },
+  shopRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  restaurantName: { ...typography.caption, color: colors.textMuted, fontSize: 12, flexShrink: 1 },
+  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  ratingText: { fontSize: 11, fontWeight: '700', color: colors.text },
   title: { ...typography.bodyBold, fontSize: 16, marginTop: 2, color: colors.text },
   titleCompact: { fontSize: 15 },
   priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.xs, marginTop: spacing.xs },

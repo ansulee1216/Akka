@@ -17,6 +17,7 @@ import {
   byNewest,
   type FeedItem,
 } from '../../utils/sections';
+import { summariseByRestaurant, formatRating, type RatingSummary } from '../../utils/reviews';
 
 /** How many cards each horizontal rail shows before "전체 보기". */
 const RAIL_LIMIT = 10;
@@ -26,10 +27,11 @@ interface RailProps {
   subtitle?: string;
   items: FeedItem[];
   now: number;
+  ratings: Map<string, RatingSummary>;
   onPressItem: (listingId: string) => void;
 }
 
-function Rail({ title, subtitle, items, now, onPressItem }: RailProps) {
+function Rail({ title, subtitle, items, now, ratings, onPressItem }: RailProps) {
   // An empty rail is worse than no rail — it reads as something broken.
   if (items.length === 0) return null;
 
@@ -52,6 +54,8 @@ function Rail({ title, subtitle, items, now, onPressItem }: RailProps) {
             listing={item.listing}
             restaurant={item.restaurant}
             distance={item.distance}
+            rating={formatRating(ratings.get(item.listing.restaurantId))}
+            ratingCount={ratings.get(item.listing.restaurantId)?.count}
             variant="compact"
             now={now}
             onPress={() => onPressItem(item.listing.listingId)}
@@ -63,12 +67,13 @@ function Rail({ title, subtitle, items, now, onPressItem }: RailProps) {
 }
 
 export default function HomeScreen({ navigation }: any) {
-  const { listings, restaurants, currentUser } = useApp();
+  const { listings, restaurants, currentUser, reviews } = useApp();
   const now = useNow();
   const { coords, label, status, useCurrentLocation, setManualLocation } = useBuyerLocation();
   const [locationSearchOpen, setLocationSearchOpen] = useState(false);
 
   const preferred = currentUser?.preferredCategories ?? [];
+  const ratings = useMemo(() => summariseByRestaurant(reviews), [reviews]);
 
   const feed = useMemo(
     () => buildFeed(listings, restaurants, coords, now),
@@ -141,6 +146,7 @@ export default function HomeScreen({ navigation }: any) {
               }
               items={recommended}
               now={now}
+              ratings={ratings}
               onPressItem={openListing}
             />
 
@@ -149,6 +155,7 @@ export default function HomeScreen({ navigation }: any) {
               subtitle={coords ? '내 위치에서 가까운 순' : undefined}
               items={nearby}
               now={now}
+              ratings={ratings}
               onPressItem={openListing}
             />
 
@@ -167,10 +174,17 @@ export default function HomeScreen({ navigation }: any) {
               subtitle="60% 이상 할인"
               items={specials}
               now={now}
+              ratings={ratings}
               onPressItem={openListing}
             />
 
-            <Rail title="새로 올라온" items={newest} now={now} onPressItem={openListing} />
+            <Rail
+              title="새로 올라온"
+              items={newest}
+              now={now}
+              ratings={ratings}
+              onPressItem={openListing}
+            />
           </>
         )}
       </ScrollView>

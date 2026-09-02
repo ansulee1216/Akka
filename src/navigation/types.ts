@@ -20,4 +20,5 @@ export type BuyerStackParamList = {
 export type SellerStackParamList = {
   SellerTabs: undefined;
   EditListing: { listingId: string };
+  EditShop: undefined;
 };

@@ -9,7 +9,9 @@ import SellerDashboardScreen from '../screens/seller/SellerDashboardScreen';
 import CreateListingScreen from '../screens/seller/CreateListingScreen';
 import SellerOrdersScreen from '../screens/seller/SellerOrdersScreen';
 import SellerSettingsScreen from '../screens/seller/SellerSettingsScreen';
+import SellerReviewsScreen from '../screens/seller/SellerReviewsScreen';
 import EditListingScreen from '../screens/seller/EditListingScreen';
+import EditShopScreen from '../screens/seller/EditShopScreen';
 import { SellerStackParamList } from './types';
 
 const Tab = createBottomTabNavigator();
@@ -27,6 +29,7 @@ function SellerTabs() {
             Dashboard: 'storefront-outline',
             CreateListing: 'add-circle-outline',
             SellerOrders: 'clipboard-outline',
+            SellerReviews: 'star-outline',
             SellerSettings: 'settings-outline',
           };
           return <Ionicons name={icons[route.name]} size={size} color={color} />;
@@ -36,6 +39,7 @@ function SellerTabs() {
       <Tab.Screen name="Dashboard" component={SellerDashboardScreen} options={{ title: '대시보드' }} />
       <Tab.Screen name="CreateListing" component={CreateListingScreen} options={{ title: '상품 등록' }} />
       <Tab.Screen name="SellerOrders" component={SellerOrdersScreen} options={{ title: '예약 현황' }} />
+      <Tab.Screen name="SellerReviews" component={SellerReviewsScreen} options={{ title: '리뷰' }} />
       <Tab.Screen name="SellerSettings" component={SellerSettingsScreen} options={{ title: '설정' }} />
     </Tab.Navigator>
   );
@@ -57,6 +61,11 @@ export default function SellerNavigator() {
         name="EditListing"
         component={EditListingScreen}
         options={{ title: '상품 수정', headerBackTitle: '뒤로' }}
+      />
+      <Stack.Screen
+        name="EditShop"
+        component={EditShopScreen}
+        options={{ title: '가게 정보 수정', headerBackTitle: '뒤로' }}
       />
     </Stack.Navigator>
   );

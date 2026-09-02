@@ -10,13 +10,16 @@ import { useBuyerLocation } from '../../hooks/useBuyerLocation';
 import { distanceInMeters, formatDistance } from '../../services/locationService';
 import { minutesUntilExpiry } from '../../utils/listing';
 import { primaryCategory, formatCategories } from '../../utils/restaurant';
+import { summariseReviews, reviewsForRestaurant } from '../../utils/reviews';
+import StarRating from '../../components/StarRating';
+import { relativeDay } from '../../utils/favorites';
 import { useNow } from '../../hooks/useNow';
 
 type Props = NativeStackScreenProps<BuyerStackParamList, 'ListingDetail'>;
 
 export default function ListingDetailScreen({ route, navigation }: Props) {
   const { listingId } = route.params;
-  const { listings, restaurants, reserveListing } = useApp();
+  const { listings, restaurants, reserveListing, reviews } = useApp();
   const { coords } = useBuyerLocation();
   const now = useNow();
   const [quantity, setQuantity] = useState(1);
@@ -40,6 +43,8 @@ export default function ListingDetailScreen({ route, navigation }: Props) {
   const discountPct = Math.round((1 - listing.discountedPrice / listing.originalPrice) * 100);
   const category = categoryStyle(primaryCategory(restaurant));
   const categoryLabel = formatCategories(restaurant);
+  const shopReviews = reviewsForRestaurant(reviews, restaurant.restaurantId);
+  const ratingSummary = summariseReviews(shopReviews);
   const minutesLeft = minutesUntilExpiry(listing, now);
   const closingSoon = isFinite(minutesLeft) && minutesLeft > 0 && minutesLeft <= 60;
 
@@ -163,6 +168,44 @@ export default function ListingDetailScreen({ route, navigation }: Props) {
             </View>
           </View>
 
+          {/* Reviews sit below the reserve details: they help someone decide,
+              but the price and pickup window are what they came for. */}
+          <View style={styles.reviewSection}>
+            <View style={styles.reviewHeader}>
+              <Text style={styles.reviewTitle}>리뷰</Text>
+              {ratingSummary.average !== null && (
+                <View style={styles.reviewSummary}>
+                  <StarRating value={ratingSummary.average} size={14} allowHalf />
+                  <Text style={styles.reviewAverage}>{ratingSummary.average.toFixed(1)}</Text>
+                  <Text style={styles.reviewCount}>({ratingSummary.count})</Text>
+                </View>
+              )}
+            </View>
+
+            {shopReviews.length === 0 ? (
+              <Text style={styles.noReviews}>
+                아직 리뷰가 없어요. 첫 리뷰를 남겨주시면 다른 분들께 큰 도움이 돼요.
+              </Text>
+            ) : (
+              shopReviews.slice(0, 5).map((review) => (
+                <View key={review.reviewId} style={styles.reviewCard}>
+                  <View style={styles.reviewCardTop}>
+                    <StarRating value={review.rating} size={13} />
+                    <Text style={styles.reviewer}>{review.buyerName}</Text>
+                    <Text style={styles.reviewDate}>{relativeDay(review.createdAt, now)}</Text>
+                  </View>
+                  {review.comment ? (
+                    <Text style={styles.reviewComment}>{review.comment}</Text>
+                  ) : null}
+                </View>
+              ))
+            )}
+
+            {shopReviews.length > 5 && (
+              <Text style={styles.moreReviews}>외 {shopReviews.length - 5}개의 리뷰</Text>
+            )}
+          </View>
+
           <Text style={styles.paymentNote}>결제는 픽업 시 매장에서 진행돼요 (카드/현금)</Text>
         </View>
       </ScrollView>
@@ -269,6 +312,31 @@ const styles = StyleSheet.create({
   stepperBtnOff: { backgroundColor: colors.background },
   stepperValue: { ...typography.bodyBold, fontSize: 17, minWidth: 22, textAlign: 'center' },
 
+  reviewSection: { marginTop: spacing.xl },
+  reviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+  },
+  reviewTitle: { ...typography.bodyBold, fontSize: 16, color: colors.text },
+  reviewSummary: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  reviewAverage: { ...typography.bodyBold, color: colors.text },
+  reviewCount: { ...typography.caption, color: colors.textMuted },
+  noReviews: { ...typography.caption, color: colors.textMuted, lineHeight: 20 },
+  reviewCard: {
+    backgroundColor: colors.card,
+    borderRadius: radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  reviewCardTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  reviewer: { ...typography.caption, color: colors.text, fontWeight: '600', flex: 1 },
+  reviewDate: { ...typography.caption, fontSize: 12, color: colors.textMuted },
+  reviewComment: { ...typography.body, color: colors.text, marginTop: spacing.sm, lineHeight: 21 },
+  moreReviews: { ...typography.caption, color: colors.textMuted, textAlign: 'center' },
   paymentNote: { ...typography.caption, color: colors.textMuted, marginTop: spacing.lg },
 
   footer: {
